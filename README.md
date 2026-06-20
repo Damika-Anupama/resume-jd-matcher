@@ -48,6 +48,7 @@ real-LLM provider.
 | Backend | Python, FastAPI, Pydantic, prometheus-client |
 | LLM | OpenRouter (provider-agnostic client; deterministic mock fallback) |
 | Testing | Playwright (E2E), pytest, deterministic eval harness |
+| Infra / DevOps | Docker (multi-stage), Kubernetes (manifests + HPA + NetworkPolicy), Terraform, checkov, kubeconform |
 
 ## Quick start
 
@@ -126,6 +127,23 @@ returns
 The `frontend/` app deploys to Vercel as a standard Next.js project (root
 directory `frontend`). No environment variables are required for the
 self-contained demo.
+
+### Kubernetes / Terraform (production topology)
+
+For a container-orchestrated deployment, `deploy/` contains full
+infrastructure-as-code — production Dockerfiles for both services, Kubernetes
+manifests (Deployments, Services, Ingress, HPAs, NetworkPolicies), and an
+equivalent Terraform configuration using a reusable module. It is validated in
+CI with `terraform validate`, `kubeconform`, and `checkov` (k8s **183/183**,
+terraform **57/57** passing). See [`deploy/README.md`](deploy/README.md).
+
+```bash
+# Validate all IaC locally (no cloud account or cluster needed)
+bash deploy/scripts/validate.sh
+
+# Deploy to any cluster (kind/minikube/EKS/GKE)
+kubectl apply -f deploy/k8s/
+```
 
 ## Author
 

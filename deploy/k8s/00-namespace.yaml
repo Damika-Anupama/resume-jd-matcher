@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: resume-jd-matcher
+  labels:
+    app.kubernetes.io/name: resume-jd-matcher
+    app.kubernetes.io/managed-by: terraform
