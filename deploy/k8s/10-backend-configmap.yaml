@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: resume-jd-matcher
+  labels:
+    app.kubernetes.io/name: resume-jd-matcher
+    app.kubernetes.io/component: backend
+data:
+  # Default to the deploy-safe deterministic provider. To enable the real LLM
+  # path, set LLM_PROVIDER=openrouter here and provide OPENROUTER_API_KEY via a
+  # Secret (NOT a ConfigMap) — see deploy/README.md.
+  LLM_PROVIDER: "mock"
+  LLM_MODEL: "openai/gpt-4o-mini"

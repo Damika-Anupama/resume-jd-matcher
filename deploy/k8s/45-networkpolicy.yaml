@@ -1,0 +1,65 @@
+# Default-deny ingress for the namespace, then explicit allows. This closes
+# CKV2_K8S_6 (every pod should be covered by a NetworkPolicy) and enforces
+# least-privilege pod-to-pod traffic.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: resume-jd-matcher
+  labels:
+    app.kubernetes.io/name: resume-jd-matcher
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Frontend pods may receive traffic from the ingress controller namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-ingress
+  namespace: resume-jd-matcher
+  labels:
+    app.kubernetes.io/name: resume-jd-matcher
+    app.kubernetes.io/component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: resume-jd-matcher
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+# Backend pods may receive traffic from frontend pods and the ingress controller
+# (the ingress routes /api directly to the backend service).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-ingress
+  namespace: resume-jd-matcher
+  labels:
+    app.kubernetes.io/name: resume-jd-matcher
+    app.kubernetes.io/component: backend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: resume-jd-matcher
+      app.kubernetes.io/component: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: resume-jd-matcher
+              app.kubernetes.io/component: frontend
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
