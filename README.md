@@ -47,7 +47,8 @@ real-LLM provider.
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | Backend | Python, FastAPI, Pydantic, prometheus-client |
 | LLM | OpenRouter (provider-agnostic client; deterministic mock fallback) |
-| Testing | Playwright (E2E), pytest, deterministic eval harness |
+| Eventing | Kafka (Redpanda locally) via confluent-kafka — async analysis queue |
+| Testing | Playwright (E2E), pytest, deterministic eval harness, real broker integration test |
 | Infra / DevOps | Docker (multi-stage), Kubernetes (manifests + HPA + NetworkPolicy), Terraform, checkov, kubeconform |
 
 ## Quick start
@@ -121,6 +122,34 @@ returns
   "provider": "mock"
 }
 ```
+
+### Event-driven async path (Kafka)
+
+For higher throughput the same analysis runs asynchronously through a
+Kafka-compatible broker (Redpanda locally):
+
+```
+POST /analyze/async            -> { "job_id": "…", "status": "queued" }  (202)
+   → produces a job to the `analysis-requests` topic
+   → a consumer worker (app/worker.py) processes it and stores the result
+GET  /analyze/status/{job_id}  -> { "status": "queued|processing|done", "result": … }
+```
+
+Run the full stack locally with Redpanda + API + worker:
+
+```bash
+docker compose -f deploy/docker-compose.yml up --build
+```
+
+The producer/consumer code (`app/events.py`) uses `confluent-kafka`, so it runs
+unchanged against managed Kafka (MSK, Confluent Cloud, Redpanda Cloud) in
+production. A **real produce→consume integration test**
+(`tests/test_events_integration.py`) spins up Redpanda in Docker and verifies the
+round trip end-to-end; it is skipped automatically when Docker is unavailable.
+
+> The demo job store is in-memory. For multi-process/scale-out deployments,
+> back it with Redis or a database so state is shared across workers. A single
+> process can serve the full async demo with `RUN_INPROCESS_CONSUMER=1`.
 
 ## Deployment
 
