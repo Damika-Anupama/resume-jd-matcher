@@ -8,10 +8,13 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import os
+import threading
 import time
 import uuid
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -22,7 +25,33 @@ from app.llm_client import analyze, active_provider
 logger = logging.getLogger("resume_jd_matcher")
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="Resume ↔ JD Matcher API", version="1.0.0")
+# Optionally run a consumer in-process (handy for single-process demos/dev so the
+# API and worker share one job store). In production, run app.worker separately
+# and use a shared store (Redis/DB).
+_consumer_stop = threading.Event()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    consumer_thread = None
+    if os.environ.get("RUN_INPROCESS_CONSUMER") == "1":
+        from app.events import consume_forever
+
+        _consumer_stop.clear()
+        consumer_thread = threading.Thread(
+            target=consume_forever, args=(_consumer_stop,), daemon=True
+        )
+        consumer_thread.start()
+        logger.info("in-process analysis consumer started")
+    try:
+        yield
+    finally:
+        if consumer_thread is not None:
+            _consumer_stop.set()
+            consumer_thread.join(timeout=5)
+
+
+app = FastAPI(title="Resume ↔ JD Matcher API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,3 +109,31 @@ def analyze_endpoint(req: AnalyzeRequest):
         },
     )
     return result
+
+
+@app.post("/analyze/async", status_code=202)
+def analyze_async_endpoint(req: AnalyzeRequest):
+    """Enqueue an analysis job on Kafka and return its id immediately.
+
+    The job is processed asynchronously by a consumer worker; poll
+    /analyze/status/{job_id} for the result.
+    """
+    from app import events
+
+    job_id = events.publish_job(req.resume, req.job_description)
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/analyze/status/{job_id}")
+def analyze_status_endpoint(job_id: str):
+    from app import events
+
+    job = events.store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job_id.")
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "result": job.result,
+        "error": job.error,
+    }
