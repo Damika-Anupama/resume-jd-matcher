@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/uploads/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Env / secrets
+.env
+.env.local
+*.local
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
