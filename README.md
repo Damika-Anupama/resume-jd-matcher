@@ -48,6 +48,7 @@ real-LLM provider.
 | Backend | Python, FastAPI, Pydantic, prometheus-client |
 | LLM | OpenRouter (provider-agnostic client; deterministic mock fallback) |
 | Eventing | Kafka (Redpanda locally) via confluent-kafka — async analysis queue |
+| State | Redis-backed shared job store (in-memory fallback) for multi-process workers |
 | Testing | Playwright (E2E), pytest, deterministic eval harness, real broker integration test |
 | Infra / DevOps | Docker (multi-stage), Kubernetes (manifests + HPA + NetworkPolicy), Terraform, checkov, kubeconform |
 
@@ -147,9 +148,21 @@ production. A **real produce→consume integration test**
 (`tests/test_events_integration.py`) spins up Redpanda in Docker and verifies the
 round trip end-to-end; it is skipped automatically when Docker is unavailable.
 
-> The demo job store is in-memory. For multi-process/scale-out deployments,
-> back it with Redis or a database so state is shared across workers. A single
-> process can serve the full async demo with `RUN_INPROCESS_CONSUMER=1`.
+#### Job store backends
+
+Job state lives behind a pluggable store (`app/store.py`):
+
+| Backend | When | Selected by |
+|---|---|---|
+| `InMemoryJobStore` | single-process demo / tests | default |
+| `RedisJobStore` | API + worker(s) as **separate processes** | `JOB_STORE=redis` + `REDIS_URL` |
+
+With Redis, the API and one or more standalone workers share the same job state,
+so a job enqueued by the API and processed by a separate worker is visible when
+you poll `/analyze/status`. A real cross-instance Redis test
+(`tests/test_store.py::test_redis_store_roundtrip_across_instances`) proves two
+independent store instances observe each other's writes. A single process can
+still serve the whole flow with `RUN_INPROCESS_CONSUMER=1` + the in-memory store.
 
 ## Deployment
 
