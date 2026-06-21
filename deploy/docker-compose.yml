@@ -24,16 +24,30 @@ services:
       timeout: 5s
       retries: 12
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   backend:
     build: ../backend
     environment:
       KAFKA_BOOTSTRAP_SERVERS: redpanda:19092
       ANALYSIS_TOPIC: analysis-requests
+      JOB_STORE: redis
+      REDIS_URL: redis://redis:6379/0
       LLM_PROVIDER: mock
     ports:
       - "8000:8000"
     depends_on:
       redpanda:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   worker:
@@ -42,7 +56,11 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: redpanda:19092
       ANALYSIS_TOPIC: analysis-requests
+      JOB_STORE: redis
+      REDIS_URL: redis://redis:6379/0
       LLM_PROVIDER: mock
     depends_on:
       redpanda:
+        condition: service_healthy
+      redis:
         condition: service_healthy

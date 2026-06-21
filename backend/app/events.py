@@ -15,51 +15,18 @@ from __future__ import annotations
 import json
 import os
 import threading
-import uuid
-from dataclasses import dataclass, field
 from typing import Optional
 
 from app.llm_client import analyze
+from app.store import make_store
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
 ANALYSIS_TOPIC = os.environ.get("ANALYSIS_TOPIC", "analysis-requests")
 
-
-@dataclass
-class Job:
-    job_id: str
-    status: str = "queued"  # queued | processing | done | error
-    result: Optional[dict] = None
-    error: Optional[str] = None
-
-
-@dataclass
-class JobStore:
-    """Thread-safe in-memory job store."""
-    _jobs: dict = field(default_factory=dict)
-    _lock: threading.Lock = field(default_factory=threading.Lock)
-
-    def create(self) -> Job:
-        job = Job(job_id=uuid.uuid4().hex)
-        with self._lock:
-            self._jobs[job.job_id] = job
-        return job
-
-    def get(self, job_id: str) -> Optional[Job]:
-        with self._lock:
-            return self._jobs.get(job_id)
-
-    def update(self, job_id: str, **fields) -> None:
-        with self._lock:
-            job = self._jobs.get(job_id)
-            if job is None:
-                return
-            for key, value in fields.items():
-                setattr(job, key, value)
-
-
-# Module-level store shared by the API and the in-process worker.
-store = JobStore()
+# Shared job store (in-memory by default, Redis when JOB_STORE=redis). Both the
+# API and the consumer worker import this module, so when backed by Redis they
+# observe the same job state across processes.
+store = make_store()
 
 
 def _make_producer():
