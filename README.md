@@ -1,5 +1,7 @@
 # Resume ↔ JD Matcher
 
+[![CI](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml/badge.svg)](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml)
+
 > An applied-LLM tool that scores how well a **resume** fits a **job description**,
 > extracts matched & missing skills, and generates tailored, LLM-assisted
 > suggestions to close the gaps.
