@@ -38,7 +38,7 @@ Paste your resume and the job description you're targeting. In under a second yo
 This is *not* a black box. The core is a deterministic skill-overlap matcher you can read, audit, and run yourself — fully offline, at zero API cost. There's no hallucination risk in your score. An optional LLM layer adds polished suggestion wording *only if you want it* and *only if you supply a key*.
 
 **What you get:**
-A real, tested product — FastAPI backend, Next.js frontend, pytest suite (12 passing), an evaluation harness, Prometheus metrics, Docker images, and Kubernetes + Terraform deploy configs. Built by an engineer, not a no-code wrapper.
+A real, tested product — FastAPI backend, Next.js frontend, pytest suite (24 passing, 2 infra-gated skips), a quantitative evaluation harness (precision 1.00 / recall 0.99 / F1 0.995 on 20 hand-labelled pairs), Prometheus metrics, Docker images, and Kubernetes + Terraform deploy configs. Built by an engineer, not a no-code wrapper.
 
 Stop spraying and praying. Start applying only when your fit is strong.
 
