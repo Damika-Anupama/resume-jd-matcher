@@ -132,7 +132,7 @@ Response body:
 
 Other endpoints:
 
-- `GET /health` — liveness probe.
+- `GET /` — liveness probe (returns `{"status":"running", ...}`).
 - `GET /metrics` — Prometheus metrics (request counts, latency, score distribution).
 
 ---
