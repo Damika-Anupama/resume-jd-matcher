@@ -42,10 +42,42 @@ SKILL_ALIASES: dict[str, list[str]] = {
     "kafka": ["kafka", "pub/sub", "event-driven"],
     "llm": ["llm", "large language model", "openai", "anthropic", "rag", "gpt"],
     "playwright": ["playwright", "e2e testing", "end-to-end tests"],
-    "testing": ["unit test", "pytest", "jest", "testing", "test coverage"],
+    "testing": ["unit test", "unit tests", "integration test", "integration tests", "pytest", "jest", "testing", "test coverage"],
     "graphql": ["graphql"],
     "redis": ["redis", "caching"],
     "microservices": ["microservices", "distributed systems"],
+    # --- expanded coverage (common real-world resume/JD skills) ---
+    "java": ["java"],
+    "spring": ["spring", "spring boot"],
+    "go": ["golang", "go lang"],
+    "rust": ["rust"],
+    "c++": ["c++", "cpp"],
+    "c#": ["c#", ".net", "dotnet", "asp.net"],
+    "ruby": ["ruby", "ruby on rails", "rails"],
+    "php": ["php", "laravel"],
+    "vue": ["vue", "vue.js", "vuejs"],
+    "angular": ["angular", "angularjs"],
+    "svelte": ["svelte", "sveltekit"],
+    "tailwind": ["tailwind", "tailwindcss"],
+    "html/css": ["html", "css", "scss", "sass"],
+    "sql": ["sql"],
+    "nosql": ["nosql", "dynamodb", "cassandra"],
+    "elasticsearch": ["elasticsearch", "elastic search", "opensearch"],
+    "azure": ["azure", "microsoft azure"],
+    "serverless": ["serverless", "lambda", "cloud functions"],
+    "celery": ["celery"],
+    "rabbitmq": ["rabbitmq", "amqp"],
+    "spark": ["spark", "pyspark", "apache spark"],
+    "airflow": ["airflow"],
+    "pandas": ["pandas", "numpy"],
+    "pytorch": ["pytorch", "torch"],
+    "tensorflow": ["tensorflow", "keras"],
+    "scikit-learn": ["scikit-learn", "sklearn", "scikit learn"],
+    "machine learning": ["machine learning", "ml", "deep learning"],
+    "nlp": ["nlp", "natural language processing"],
+    "data engineering": ["data engineering", "etl", "elt", "data pipeline", "data pipelines"],
+    "agile": ["agile", "scrum", "kanban"],
+    "git": ["git", "github", "gitlab", "version control"],
 }
 
 
@@ -55,8 +87,14 @@ def extract_skills(text: str) -> set[str]:
     found: set[str] = set()
     for canonical, aliases in SKILL_ALIASES.items():
         for alias in aliases:
-            # word-boundary-ish match that tolerates punctuation around tokens
-            pattern = r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])"
+            # Token-aware boundary match.
+            #
+            # The leading guard excludes a preceding "." as well as
+            # alphanumerics, so a short alias like "js"/"ts" does NOT match the
+            # file-extension suffix of a larger token ("next.js", "node.ts").
+            # The trailing guard intentionally allows a following "." so that a
+            # skill at the end of a sentence ("...uses Python.") still matches.
+            pattern = r"(?<![a-z0-9.])" + re.escape(alias) + r"(?![a-z0-9])"
             if re.search(pattern, lowered):
                 found.add(canonical)
                 break
