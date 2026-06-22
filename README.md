@@ -6,6 +6,19 @@
 
 Built to demonstrate an end-to-end applied-LLM workflow: **API + UI + evaluation + deployment** — provider-agnostic, with a deterministic mock mode so it runs anywhere with zero secrets.
 
+## Screenshots
+
+The Next.js UI, running self-contained (no API key). These are real captures of the
+deployed app, taken via Playwright against the production build.
+
+| Input | Result |
+|---|---|
+| ![Resume and JD input view](docs/ui-input.png) | ![Fit score, matched/missing skills and suggestions](docs/ui-results.png) |
+
+*Left: paste a resume and a job description. Right: the deterministic matcher returns
+a fit score, matched/missing/extra skills, a summary, and tailored suggestions (the
+`provider` label shows whether the real LLM or the deterministic fallback produced them).*
+
 ## Why this exists
 
 The structured score (fit %, matched/missing skills) comes from a **deterministic
