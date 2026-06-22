@@ -25,7 +25,7 @@ Because the score is deterministic, the same inputs always produce the same outp
 
 ## How it works
 
-1. **Skill extraction.** Both the resume and the job description are scanned against a curated skill dictionary with aliases (e.g. `js` → `javascript`, `k8s` → `kubernetes`, `next` → `next.js`). This catches the same skill written different ways.
+1. **Skill extraction.** Both the resume and the job description are scanned against a curated skill dictionary with aliases (e.g. `js` → `javascript`, `k8s` → `kubernetes`, `nextjs` → `next.js`). This catches the same skill written different ways.
 2. **Overlap matching.** The engine computes which JD-required skills appear in the resume (`matched_skills`), which don't (`missing_skills`), and which extra skills the resume has that the JD didn't ask for (`extra_skills`).
 3. **Deterministic scoring.** `fit_score = matched_required / total_required_in_JD`, scaled to 0–100. No randomness, no model weights — pure, reproducible arithmetic.
 4. **Suggestions layer.** A suggestions generator produces 3–5 actionable tips ("Add concrete evidence of kubernetes…"). With no API key configured this runs through a deterministic **mock** provider so the whole app works offline at zero cost. Set `OPENROUTER_API_KEY` to upgrade the suggestions to LLM-tailored prose (OpenRouter, `gpt-4o-mini`). The `provider` field in the response tells you which path produced the output (`mock` or `openrouter`).
