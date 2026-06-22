@@ -1,5 +1,7 @@
 # Resume ↔ JD Matcher
 
+[![CI](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml/badge.svg)](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml)
+
 > An applied-LLM tool that scores how well a **resume** fits a **job description**,
 > extracts matched & missing skills, and generates tailored, LLM-assisted
 > suggestions to close the gaps.
@@ -101,6 +103,18 @@ Recruiters for applied-LLM roles expect **evaluation**, not just a model call.
 `app/evaluate.py` scores the deterministic core against a golden set of
 `(resume, jd, expected)` cases and reports accuracy; it's also asserted in the
 test suite (`pytest`).
+
+## Continuous integration
+
+Every push and PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml),
+which gates on:
+
+- **Backend** — `ruff` lint, `pytest` (unit tests, integration tests excluded),
+  and the golden-set **evaluation harness** (`python -m app.evaluate`).
+- **Frontend** — `eslint`, `tsc --noEmit` typecheck, and a full `next build`.
+
+Everything runs on the deterministic mock path, so CI needs **no API key or
+secrets** and is fully reproducible.
 
 ## API
 
