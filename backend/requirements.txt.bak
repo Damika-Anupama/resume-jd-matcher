@@ -4,5 +4,3 @@ pydantic==2.13.4
 prometheus-client==0.21.1
 confluent-kafka==2.14.2
 redis==5.2.1
-prometheus-client==0.17.1
-structlog==23.1.0

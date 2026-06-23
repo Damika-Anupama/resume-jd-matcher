@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    image: node:18
+    working_dir: /app/frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app/frontend
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - backend
