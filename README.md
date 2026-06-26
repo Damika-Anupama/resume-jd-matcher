@@ -1,196 +1,238 @@
-# Resume ↔ JD Matcher
+# resume-jd-matcher
 
-> An applied-LLM tool that scores how well a **resume** fits a **job description**,
-> extracts matched & missing skills, and generates tailored, LLM-assisted
-> suggestions to close the gaps.
+**Find out *why* a resume fails a job description — before an ATS silently rejects it.**
 
-Built to demonstrate an end-to-end applied-LLM workflow: **API + UI + evaluation + deployment** — provider-agnostic, with a deterministic mock mode so it runs anywhere with zero secrets.
+`resume-jd-matcher` is a transparent, deterministic engine that scores how well a resume matches a job description, lists the skills you matched, the skills you're missing, and gives concrete suggestions to close the gap. It is **not** an AI black box — the core score is reproducible skill-overlap math you can read in 50 lines of Python. An optional LLM layer adds natural-language tailoring tips on top.
 
-## Why this exists
+---
 
-The structured score (fit %, matched/missing skills) comes from a **deterministic
-matching engine**, so results are reproducible and testable. A **real LLM**
-(via OpenRouter) layers natural-language tailoring suggestions on top — but only
-when configured. With no API key the app falls back to deterministic,
-template-based suggestions, so the UI, tests, and deploys all work offline.
+## The problem
 
-## Architecture
+Job seekers spray-and-pray: they fire the same resume at 80 postings and hear nothing back. On the other side, recruiters lean on ATS keyword-matching that silently rejects a candidate the moment a required skill string isn't found — no feedback, no reason, no second look.
 
-```
-┌──────────────────────────┐         ┌─────────────────────────────┐
-│  Next.js + TypeScript UI │  POST   │  /api/analyze (route handler)│
-│  resume + JD textareas   ├────────►│  deterministic matcher (TS)  │
-│  fit ring · skills · tips │  JSON   │  → fit, matched/missing, tips│
-└──────────────────────────┘         └─────────────────────────────┘
+The result is a black hole. A qualified candidate gets auto-rejected and never learns that the JD wanted "Kubernetes" while their resume said "container orchestration." Nobody tells you **why** your resume failed a JD.
 
-         ── plus a full Python service for the LLM-powered path ──
+`resume-jd-matcher` closes that loop. Paste a resume and a job description and get back, in milliseconds:
 
-┌──────────────────────────────────────────────────────────────────┐
-│  FastAPI backend                                                  │
-│  • POST /analyze  → deterministic score + provider suggestions    │
-│  • GET  /metrics  → Prometheus (requests, latency, fit_score,     │
-│                     analyses_total{provider})                     │
-│  • app/llm_client → mock | openrouter (env-selected, key from env)│
-│  • app/evaluate   → golden-set evaluation harness                 │
-└──────────────────────────────────────────────────────────────────┘
-```
+- a **fit score** (0–100) you can actually explain,
+- the exact skills you **matched**,
+- the exact skills you're **missing**,
+- and **specific suggestions** for what to add or reword.
 
-The Next.js deployment is **self-contained** (matching runs in a route handler),
-so the live demo needs no backend and no API key. The FastAPI service is the
-reference implementation of the same contract, plus observability and the
-real-LLM provider.
+Because the score is deterministic, the same inputs always produce the same output. You can audit it, reproduce it, and trust it.
 
-## Tech stack
+---
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
-| Backend | Python, FastAPI, Pydantic, prometheus-client |
-| LLM | OpenRouter (provider-agnostic client; deterministic mock fallback) |
-| Eventing | Kafka (Redpanda locally) via confluent-kafka — async analysis queue |
-| State | Redis-backed shared job store (in-memory fallback) for multi-process workers |
-| Testing | Playwright (E2E), pytest, deterministic eval harness, real broker integration test |
-| Infra / DevOps | Docker (multi-stage), Kubernetes (manifests + HPA + NetworkPolicy), Terraform, checkov, kubeconform |
+## How it works
 
-## Quick start
+1. **Skill extraction.** Both the resume and the job description are scanned against a curated skill dictionary with aliases (e.g. `js` → `javascript`, `k8s` → `kubernetes`, `nextjs` → `next.js`). This catches the same skill written different ways.
+2. **Overlap matching.** The engine computes which JD-required skills appear in the resume (`matched_skills`), which don't (`missing_skills`), and which extra skills the resume has that the JD didn't ask for (`extra_skills`).
+3. **Deterministic scoring.** `fit_score = matched_required / total_required_in_JD`, scaled to 0–100. No randomness, no model weights — pure, reproducible arithmetic.
+4. **Suggestions layer.** A suggestions generator produces 3–5 actionable tips ("Add concrete evidence of kubernetes…"). With no API key configured this runs through a deterministic **mock** provider so the whole app works offline at zero cost. Set `OPENROUTER_API_KEY` to upgrade the suggestions to LLM-tailored prose (OpenRouter, `gpt-4o-mini`). The `provider` field in the response tells you which path produced the output (`mock` or `openrouter`).
 
-### Frontend (self-contained demo)
+The transparency is the point: explainable, reproducible, offline-capable, and free by default. The LLM is an enhancement, never a dependency.
+
+---
+
+## Demo
+
+Start the backend (see Install), then:
 
 ```bash
-cd frontend
-npm install
-npm run dev            # http://localhost:3000
-npm run build && npm start
-npm run test:e2e       # Playwright E2E (no API key needed)
+curl -s http://localhost:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resume": "Built React and Next.js apps in TypeScript with FastAPI and Docker",
+    "job_description": "Need React, TypeScript, Kubernetes and Terraform"
+  }' | python -m json.tool
 ```
 
-### Backend (full service + LLM path)
-
-```bash
-cd backend
-python3.13 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
-
-# Run the API (mock provider by default — no key required)
-uvicorn app.main:app --reload --port 8000
-
-# Tests + lint + evaluation
-pytest -q
-ruff check app tests
-python -m app.evaluate        # prints golden-set accuracy
-```
-
-### Enabling the real LLM provider
-
-The LLM path is **off by default** (deploy-safe). To enable it, set:
-
-```bash
-export LLM_PROVIDER=openrouter
-export OPENROUTER_API_KEY=sk-or-...     # never commit this
-export LLM_MODEL=openai/gpt-4o-mini     # optional, this is the default
-```
-
-With these set, `/analyze` returns suggestions from a real model and the
-response's `provider` field reads `openrouter`. If the LLM call fails, the
-service falls back to deterministic suggestions and labels the provider
-`mock (openrouter fallback)` — it never fails the request.
-
-## Evaluation
-
-Recruiters for applied-LLM roles expect **evaluation**, not just a model call.
-`app/evaluate.py` scores the deterministic core against a golden set of
-`(resume, jd, expected)` cases and reports accuracy; it's also asserted in the
-test suite (`pytest`).
-
-## API
-
-`POST /analyze`
-
-```json
-{ "resume": "…", "job_description": "…" }
-```
-
-returns
+Response:
 
 ```json
 {
   "fit_score": 50,
   "matched_skills": ["react", "typescript"],
   "missing_skills": ["kubernetes", "terraform"],
-  "extra_skills": ["redis"],
+  "extra_skills": ["docker", "fastapi", "next.js"],
   "summary": "Partial match: the resume covers 2 of 4 required skills (50%).",
-  "suggestions": ["Add concrete evidence of kubernetes …"],
+  "suggestions": [
+    "Add concrete evidence of kubernetes — a project, metric, or responsibility that demonstrates hands-on use.",
+    "Add concrete evidence of terraform — a project, metric, or responsibility that demonstrates hands-on use.",
+    "Lead with your strongest matched skills (react, typescript) near the top of the resume so they are seen first."
+  ],
   "provider": "mock"
 }
 ```
 
-### Event-driven async path (Kafka)
+> The JSON above is the **verbatim** response from the running service (mock
+> provider), not a paraphrase. Two matched, two missing, score 50 — and you
+> know exactly why.
 
-For higher throughput the same analysis runs asynchronously through a
-Kafka-compatible broker (Redpanda locally):
+---
 
-```
-POST /analyze/async            -> { "job_id": "…", "status": "queued" }  (202)
-   → produces a job to the `analysis-requests` topic
-   → a consumer worker (app/worker.py) processes it and stores the result
-GET  /analyze/status/{job_id}  -> { "status": "queued|processing|done", "result": … }
-```
+## Install
 
-Run the full stack locally with Redpanda + API + worker:
+### Backend (FastAPI)
 
 ```bash
-docker compose -f deploy/docker-compose.yml up --build
+cd backend
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 ```
 
-The producer/consumer code (`app/events.py`) uses `confluent-kafka`, so it runs
-unchanged against managed Kafka (MSK, Confluent Cloud, Redpanda Cloud) in
-production. A **real produce→consume integration test**
-(`tests/test_events_integration.py`) spins up Redpanda in Docker and verifies the
-round trip end-to-end; it is skipped automatically when Docker is unavailable.
+The API is now live at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-#### Job store backends
+To enable LLM-tailored suggestions, set an OpenRouter key before launching:
 
-Job state lives behind a pluggable store (`app/store.py`):
+```bash
+export OPENROUTER_API_KEY=sk-or-...
+```
 
-| Backend | When | Selected by |
+Without it, the app runs fully offline using the deterministic `mock` provider.
+
+### Frontend (Next.js)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`, paste a resume and a JD, and see the score, matched/missing skills, and suggestions rendered in the UI.
+
+---
+
+## Usage
+
+**`POST /analyze`**
+
+Request body:
+
+```json
+{
+  "resume": "string — the candidate's resume text",
+  "job_description": "string — the target job description text"
+}
+```
+
+Response body:
+
+| Field | Type | Description |
 |---|---|---|
-| `InMemoryJobStore` | single-process demo / tests | default |
-| `RedisJobStore` | API + worker(s) as **separate processes** | `JOB_STORE=redis` + `REDIS_URL` |
+| `fit_score` | `int` (0–100) | `matched_required / total_required_in_JD`, scaled |
+| `matched_skills` | `string[]` | Required skills found in the resume |
+| `missing_skills` | `string[]` | Required skills absent from the resume |
+| `extra_skills` | `string[]` | Resume skills the JD didn't ask for |
+| `summary` | `string` | One-line human summary of the match |
+| `suggestions` | `string[]` | 3–5 actionable tips to improve fit |
+| `provider` | `string` | `mock` (deterministic) or `openrouter` (LLM) |
 
-With Redis, the API and one or more standalone workers share the same job state,
-so a job enqueued by the API and processed by a separate worker is visible when
-you poll `/analyze/status`. A real cross-instance Redis test
-(`tests/test_store.py::test_redis_store_roundtrip_across_instances`) proves two
-independent store instances observe each other's writes. A single process can
-still serve the whole flow with `RUN_INPROCESS_CONSUMER=1` + the in-memory store.
+Other endpoints:
 
-## Deployment
+- `GET /` — liveness probe (returns `{"status":"running", ...}`).
+- `GET /metrics` — Prometheus metrics (request counts, latency, score distribution).
 
-The `frontend/` app deploys to Vercel as a standard Next.js project (root
-directory `frontend`). No environment variables are required for the
-self-contained demo.
+---
 
-### Kubernetes / Terraform (production topology)
+## Architecture
 
-For a container-orchestrated deployment, `deploy/` contains full
-infrastructure-as-code — production Dockerfiles for both services, Kubernetes
-manifests (Deployments, Services, Ingress, HPAs, NetworkPolicies), and an
-equivalent Terraform configuration using a reusable module. It is validated in
-CI with `terraform validate`, `kubeconform`, and `checkov` (k8s **183/183**,
-terraform **57/57** passing). See [`deploy/README.md`](deploy/README.md).
+```
+                 ┌─────────────────────┐
+                 │   Next.js frontend   │
+                 │  (paste resume + JD) │
+                 └──────────┬──────────┘
+                            │ POST /analyze
+                            ▼
+        ┌───────────────────────────────────────┐
+        │            FastAPI backend             │
+        │                                        │
+        │  ┌──────────────────────────────────┐  │
+        │  │  Deterministic matching core     │  │
+        │  │  (app/matching.py)               │  │
+        │  │  skill dict + aliases → overlap  │  │
+        │  │  → fit_score, matched, missing   │  │
+        │  └──────────────────────────────────┘  │
+        │                  │                     │
+        │                  ▼                     │
+        │  ┌──────────────────────────────────┐  │
+        │  │  Suggestions layer (optional)    │  │
+        │  │  mock provider (offline) OR      │  │
+        │  │  OpenRouter gpt-4o-mini          │  │
+        │  └──────────────────────────────────┘  │
+        │                                        │
+        │  /metrics → Prometheus                 │
+        └───────────────────────────────────────┘
+                            │
+            optional async path (decoupled)
+                            ▼
+        ┌───────────────────────────────────────┐
+        │  Kafka events → worker → Redis store   │
+        └───────────────────────────────────────┘
 
-```bash
-# Validate all IaC locally (no cloud account or cluster needed)
-bash deploy/scripts/validate.sh
-
-# Deploy to any cluster (kind/minikube/EKS/GKE)
-kubectl apply -f deploy/k8s/
+  Deploy: Docker images · k8s manifests · Terraform (deploy/)
 ```
 
-## Author
+- **Matching core** (`backend/app/matching.py`) — deterministic skill-overlap matcher. The single source of truth for the score.
+- **Suggestions layer** — pluggable provider; `mock` by default, `openrouter` when a key is present.
+- **Frontend** — Next.js single-page experience for paste-and-analyze.
+- **Observability** — Prometheus `/metrics` endpoint.
+- **Optional async path** — a Kafka event-driven analyze pipeline with a Redis shared store, for high-throughput / decoupled processing.
+- **Deploy** — Dockerfiles, Kubernetes manifests, and Terraform under `deploy/`.
 
-**Damika Anupama Nanayakkara** — [Portfolio](https://damika.is-a.dev/) · [GitHub](https://github.com/Damika-Anupama) · [LinkedIn](https://www.linkedin.com/in/damika-anupama)
+---
 
-## License
+## Tech stack
 
-MIT
+| Layer | Technology |
+|---|---|
+| API | FastAPI (Python 3.11) |
+| Matching | Pure-Python deterministic skill-overlap engine |
+| LLM (optional) | OpenRouter · `gpt-4o-mini` |
+| Frontend | Next.js / React / TypeScript |
+| Metrics | Prometheus |
+| Async (optional) | Kafka + Redis |
+| Packaging | Docker |
+| Orchestration | Kubernetes manifests |
+| Infra-as-code | Terraform |
+| Tests | pytest + custom eval harness |
+
+---
+
+## Tested & evaluated
+
+This is not a weekend prototype with no safety net.
+
+- **Unit / integration tests:** `pytest` suite — **24 passed, 2 skipped** (the 2 skips require live Kafka/Redis, which are off in local/CI without Docker).
+
+  ```bash
+  cd backend && pytest
+  ```
+
+- **Evaluation harness:** a hand-labelled set of **20 realistic resume/JD pairs** (`app/eval_dataset.py`), each annotated with the gold skills a careful human reader would extract, plus an expected fit band. The harness measures the deterministic engine against those human labels and prints concrete numbers:
+
+  ```bash
+  cd backend && python -m app.evaluate        # human-readable report
+  cd backend && python -m app.evaluate --json  # machine-readable
+  ```
+
+  Latest measured results (deterministic, reproducible run-to-run):
+
+  | Metric | Value |
+  | --- | --- |
+  | Skill-extraction precision | **1.00** (196 TP, 0 FP) |
+  | Skill-extraction recall | **0.99** (2 FN) |
+  | Skill-extraction F1 | **0.995** |
+  | Fit-score mean absolute error | **0.99 pts** vs human reference (19 pairs) |
+  | Fit-band classification accuracy | **1.00** (20/20) |
+  | Behavioural golden set | **6/6** |
+
+  The 2 false-negatives are a deliberately-documented limitation (bare 2-letter `Go` is not extracted to avoid false-positives on the English verb; use `Golang`). Because the score is deterministic, these numbers are stable run-to-run — you measure the engine, not model variance. The quality bars are also pinned as pytest assertions (`tests/test_eval_metrics.py`) so a regression fails CI rather than passing silently.
+
+---
+
+## License & honesty note
+
+`resume-jd-matcher` is a transparent skill-overlap matcher with an **optional** LLM suggestions layer. It does not pretend to be an AI oracle. The score is reproducible arithmetic you can read, audit, and trust — and it runs fully offline at zero API cost by default.

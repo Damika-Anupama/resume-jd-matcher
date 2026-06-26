@@ -1,19 +1,37 @@
 """Evaluation harness for the deterministic matching core.
 
 Recruiters for applied-LLM roles expect evidence of *evaluation*, not just a
-model call. This harness scores the deterministic engine against a small golden
-set of (resume, jd, expected) cases and reports accuracy metrics. It runs with
-no API key because it evaluates the reproducible core.
+model call. This harness has two layers, both running with no API key because
+they evaluate the reproducible deterministic core:
 
-Run directly:  `python -m app.evaluate`
+1. ``evaluate()`` — a behavioural golden set (assertion-style cases): each case
+   pins a fit range and required matched/missing skills. Pass/fail per case.
+
+2. ``evaluate_metrics()`` — a *quantitative* harness over a hand-labeled dataset
+   (``app.eval_dataset``). It measures the extractor against human gold labels
+   and reports concrete numbers:
+     - skill-extraction **precision / recall / F1** (micro-averaged over all
+       resume+JD sides), so a phantom skill (false positive) or a missed skill
+       (false negative) is actually counted, not hidden;
+     - fit-score **mean absolute error** vs a human reference fit; and
+     - fit-**band classification accuracy** (strong / partial / weak).
+
+Run directly:  ``python -m app.evaluate``       (golden set + metrics)
+               ``python -m app.evaluate --json`` (machine-readable report)
 """
 from __future__ import annotations
 
+import json
+import sys
 from dataclasses import dataclass
 
-from app.matching import compute_match
+from app.matching import compute_match, extract_skills
+from app.eval_dataset import DATASET, LabeledPair
 
 
+# --------------------------------------------------------------------------- #
+# Layer 1: behavioural golden set (backward compatible)
+# --------------------------------------------------------------------------- #
 @dataclass
 class Case:
     name: str
@@ -62,10 +80,32 @@ GOLDEN_SET: list[Case] = [
         must_match=["llm", "fastapi", "playwright"],
         must_miss=[],
     ),
+    # --- added boundary/regression cases ---
+    Case(
+        name="js_extension_not_javascript",
+        # Regression guard: "Next.js"/"Node.js" must NOT yield a phantom
+        # "javascript" skill from the ".js" file-extension suffix.
+        resume="Engineer using Next.js and Node.js every day.",
+        jd="We need Next.js and Node.js experience.",
+        expect_min_fit=100,
+        expect_max_fit=100,
+        must_match=["next.js", "node.js"],
+        must_miss=[],
+    ),
+    Case(
+        name="data_engineer_strong",
+        resume="ETL pipelines with Airflow and Spark. Python, SQL, PostgreSQL.",
+        jd="Data engineer: Python, SQL, Airflow, Spark, PostgreSQL.",
+        expect_min_fit=90,
+        expect_max_fit=100,
+        must_match=["python", "sql", "airflow", "spark", "postgresql"],
+        must_miss=[],
+    ),
 ]
 
 
 def evaluate() -> dict:
+    """Behavioural golden-set evaluation (per-case pass/fail)."""
     passed = 0
     failures: list[str] = []
     for case in GOLDEN_SET:
@@ -100,8 +140,147 @@ def evaluate() -> dict:
     }
 
 
+# --------------------------------------------------------------------------- #
+# Layer 2: quantitative metrics over the hand-labeled dataset
+# --------------------------------------------------------------------------- #
+def _band(fit: int) -> str:
+    if fit >= 80:
+        return "strong"
+    if fit >= 50:
+        return "partial"
+    return "weak"
+
+
+def _reference_fit(pair: LabeledPair) -> float | None:
+    """Human-reference fit % = gold JD skills covered by gold resume skills.
+
+    Returns None when the JD has no gold skills (undefined denominator).
+    """
+    if not pair.gold_jd_skills:
+        return None
+    covered = pair.gold_jd_skills & pair.gold_resume_skills
+    return 100.0 * len(covered) / len(pair.gold_jd_skills)
+
+
+def evaluate_metrics() -> dict:
+    """Quantitative extraction + scoring metrics vs human gold labels."""
+    tp = fp = fn = 0  # micro-averaged skill-extraction confusion counts
+    abs_errors: list[float] = []
+    band_correct = 0
+    band_total = 0
+    per_case: list[dict] = []
+
+    for pair in DATASET:
+        # --- skill extraction P/R/F1 (both resume and JD sides) ---
+        for text, gold in (
+            (pair.resume, pair.gold_resume_skills),
+            (pair.jd, pair.gold_jd_skills),
+        ):
+            predicted = extract_skills(text)
+            tp += len(predicted & gold)
+            fp += len(predicted - gold)
+            fn += len(gold - predicted)
+
+        # --- fit-score error vs human reference ---
+        result = compute_match(pair.resume, pair.jd)
+        ref = _reference_fit(pair)
+        case_err = None
+        if ref is not None:
+            case_err = abs(result.fit_score - ref)
+            abs_errors.append(case_err)
+
+        # --- band classification accuracy ---
+        predicted_band = _band(result.fit_score)
+        band_total += 1
+        band_ok = predicted_band == pair.expect_band
+        if band_ok:
+            band_correct += 1
+
+        per_case.append({
+            "name": pair.name,
+            "fit": result.fit_score,
+            "reference_fit": round(ref, 1) if ref is not None else None,
+            "abs_error": round(case_err, 1) if case_err is not None else None,
+            "predicted_band": predicted_band,
+            "expected_band": pair.expect_band,
+            "band_ok": band_ok,
+        })
+
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+    mae = sum(abs_errors) / len(abs_errors) if abs_errors else 0.0
+    band_acc = band_correct / band_total if band_total else 0.0
+
+    return {
+        "dataset_size": len(DATASET),
+        "skill_extraction": {
+            "true_positives": tp,
+            "false_positives": fp,
+            "false_negatives": fn,
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "f1": round(f1, 3),
+        },
+        "fit_score": {
+            "mean_absolute_error": round(mae, 2),
+            "scored_pairs": len(abs_errors),
+        },
+        "band_classification": {
+            "accuracy": round(band_acc, 3),
+            "correct": band_correct,
+            "total": band_total,
+        },
+        "per_case": per_case,
+    }
+
+
+def _print_human(golden: dict, metrics: dict) -> None:
+    print("=" * 62)
+    print("RESUME ↔ JD MATCHER — EVALUATION REPORT")
+    print("=" * 62)
+    print()
+    print("[1] Behavioural golden set")
+    print(f"    accuracy: {golden['accuracy']} ({golden['passed']}/{golden['total']})")
+    for failure in golden["failures"]:
+        print("    FAIL:", failure)
+    print()
+
+    se = metrics["skill_extraction"]
+    fs = metrics["fit_score"]
+    bc = metrics["band_classification"]
+    print(f"[2] Quantitative metrics  (n={metrics['dataset_size']} labeled pairs)")
+    print("    Skill extraction vs human gold labels:")
+    print(f"      precision : {se['precision']}  (tp={se['true_positives']}, fp={se['false_positives']})")
+    print(f"      recall    : {se['recall']}  (fn={se['false_negatives']})")
+    print(f"      F1        : {se['f1']}")
+    print(f"    Fit-score mean absolute error : {fs['mean_absolute_error']} pts "
+          f"(over {fs['scored_pairs']} pairs)")
+    print(f"    Fit-band classification acc   : {bc['accuracy']} "
+          f"({bc['correct']}/{bc['total']})")
+    print()
+    # Surface any band misclassifications honestly.
+    misses = [c for c in metrics["per_case"] if not c["band_ok"]]
+    if misses:
+        print("    Band misclassifications:")
+        for c in misses:
+            print(f"      {c['name']}: predicted {c['predicted_band']} "
+                  f"(fit {c['fit']}) vs expected {c['expected_band']}")
+    else:
+        print("    Band misclassifications: none")
+    print("=" * 62)
+
+
+def main() -> int:
+    golden = evaluate()
+    metrics = evaluate_metrics()
+    if "--json" in sys.argv:
+        print(json.dumps({"golden_set": golden, "metrics": metrics}, indent=2))
+    else:
+        _print_human(golden, metrics)
+    # Non-zero exit if the behavioural golden set regresses (CI-friendly).
+    return 0 if golden["accuracy"] == 1.0 else 1
+
+
 if __name__ == "__main__":
-    report = evaluate()
-    print(f"Eval accuracy: {report['accuracy']} ({report['passed']}/{report['total']})")
-    for failure in report["failures"]:
-        print("FAIL:", failure)
+    raise SystemExit(main())

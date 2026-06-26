@@ -31,10 +31,42 @@ export const SKILL_ALIASES: Record<string, string[]> = {
   kafka: ["kafka", "pub/sub", "event-driven"],
   llm: ["llm", "large language model", "openai", "anthropic", "rag", "gpt"],
   playwright: ["playwright", "e2e testing", "end-to-end tests"],
-  testing: ["unit test", "pytest", "jest", "testing", "test coverage"],
+  testing: ["unit test", "unit tests", "integration test", "integration tests", "pytest", "jest", "testing", "test coverage"],
   graphql: ["graphql"],
   redis: ["redis", "caching"],
   microservices: ["microservices", "distributed systems"],
+  // --- expanded coverage (kept in sync with backend/app/matching.py) ---
+  java: ["java"],
+  spring: ["spring", "spring boot"],
+  go: ["golang", "go lang"],
+  rust: ["rust"],
+  "c++": ["c++", "cpp"],
+  "c#": ["c#", ".net", "dotnet", "asp.net"],
+  ruby: ["ruby", "ruby on rails", "rails"],
+  php: ["php", "laravel"],
+  vue: ["vue", "vue.js", "vuejs"],
+  angular: ["angular", "angularjs"],
+  svelte: ["svelte", "sveltekit"],
+  tailwind: ["tailwind", "tailwindcss"],
+  "html/css": ["html", "css", "scss", "sass"],
+  sql: ["sql"],
+  nosql: ["nosql", "dynamodb", "cassandra"],
+  elasticsearch: ["elasticsearch", "elastic search", "opensearch"],
+  azure: ["azure", "microsoft azure"],
+  serverless: ["serverless", "lambda", "cloud functions"],
+  celery: ["celery"],
+  rabbitmq: ["rabbitmq", "amqp"],
+  spark: ["spark", "pyspark", "apache spark"],
+  airflow: ["airflow"],
+  pandas: ["pandas", "numpy"],
+  pytorch: ["pytorch", "torch"],
+  tensorflow: ["tensorflow", "keras"],
+  "scikit-learn": ["scikit-learn", "sklearn", "scikit learn"],
+  "machine learning": ["machine learning", "ml", "deep learning"],
+  nlp: ["nlp", "natural language processing"],
+  "data engineering": ["data engineering", "etl", "elt", "data pipeline", "data pipelines"],
+  agile: ["agile", "scrum", "kanban"],
+  git: ["git", "github", "gitlab", "version control"],
 };
 
 function escapeRegExp(s: string): string {
@@ -46,7 +78,11 @@ export function extractSkills(text: string): Set<string> {
   const found = new Set<string>();
   for (const [canonical, aliases] of Object.entries(SKILL_ALIASES)) {
     for (const alias of aliases) {
-      const pattern = new RegExp(`(?<![a-z0-9])${escapeRegExp(alias)}(?![a-z0-9])`);
+      // Token-aware boundary: the leading guard excludes a preceding "." so a
+      // short alias ("js"/"ts") does not match a file-extension suffix
+      // ("next.js"); the trailing guard allows a following "." so a skill at a
+      // sentence end ("...uses Python.") still matches. Mirrors matching.py.
+      const pattern = new RegExp(`(?<![a-z0-9.])${escapeRegExp(alias)}(?![a-z0-9])`);
       if (pattern.test(lowered)) {
         found.add(canonical);
         break;
