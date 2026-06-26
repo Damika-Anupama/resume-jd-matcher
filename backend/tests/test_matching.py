@@ -7,6 +7,12 @@ def test_extract_skills_basic():
     assert {"react", "typescript", "fastapi"} <= skills
 
 
+def test_extract_skills_does_not_treat_nextjs_as_plain_javascript():
+    skills = extract_skills("Built Next.js apps with React.")
+    assert {"next.js", "react"} <= skills
+    assert "javascript" not in skills
+
+
 def test_strong_match_scores_high():
     result = compute_match(
         "Built React and Next.js apps in TypeScript with REST APIs.",
