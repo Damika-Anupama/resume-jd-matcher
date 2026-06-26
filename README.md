@@ -102,6 +102,25 @@ Recruiters for applied-LLM roles expect **evaluation**, not just a model call.
 `(resume, jd, expected)` cases and reports accuracy; it's also asserted in the
 test suite (`pytest`).
 
+The harness is deliberately scoped to the reproducible matcher, not subjective
+LLM prose quality:
+
+- each case defines an expected fit-score range plus required `must_match` and
+  `must_miss` skills;
+- the run passes only when the score range and all skill expectations match;
+- `python -m app.evaluate --json` emits case-level actuals, failures, and
+  methodology metadata suitable for a CI artifact or portfolio evidence.
+
+Example current mock-mode result:
+
+```text
+Eval accuracy: 1.0 (4/4)
+PASS strong_frontend: fit=100 matched=['next.js', 'react', 'rest apis', 'typescript'] missing=[]
+PASS partial_backend: fit=40 matched=['fastapi', 'python'] missing=['kubernetes', 'observability', 'terraform']
+PASS weak_devops: fit=0 matched=[] missing=['aws', 'ci/cd', 'kubernetes', 'prometheus', 'terraform']
+PASS llm_role: fit=100 matched=['fastapi', 'llm', 'playwright'] missing=[]
+```
+
 ## API
 
 `POST /analyze`

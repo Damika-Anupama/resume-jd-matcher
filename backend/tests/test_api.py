@@ -54,3 +54,20 @@ def test_eval_harness_accuracy():
     # The golden set must pass fully for the deterministic core to be trusted.
     assert report["accuracy"] == 1.0, report["failures"]
     assert report["passed"] == report["total"]
+    assert len(report["cases"]) == report["total"]
+    assert report["methodology"]["scope"] == "deterministic skill extraction and fit scoring only"
+
+
+def test_eval_harness_reports_case_level_evidence():
+    report = evaluate()
+    case = next(item for item in report["cases"] if item["name"] == "partial_backend")
+
+    assert case["passed"] is True
+    assert case["actual"]["fit_score"] == 40
+    assert case["actual"]["matched_skills"] == ["fastapi", "python"]
+    assert case["actual"]["missing_skills"] == [
+        "kubernetes",
+        "observability",
+        "terraform",
+    ]
+    assert case["metrics"]["expectation_recall"] == 1.0

@@ -55,8 +55,14 @@ def extract_skills(text: str) -> set[str]:
     found: set[str] = set()
     for canonical, aliases in SKILL_ALIASES.items():
         for alias in aliases:
-            # word-boundary-ish match that tolerates punctuation around tokens
-            pattern = r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])"
+            # word-boundary-ish match that tolerates punctuation around tokens.
+            # Short aliases like "js" and "ts" need a stricter left boundary so
+            # framework names such as "Next.js" do not become false positives
+            # for plain JavaScript.
+            if alias in {"js", "ts"}:
+                pattern = r"(?<![a-z0-9.])" + re.escape(alias) + r"(?![a-z0-9.])"
+            else:
+                pattern = r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])"
             if re.search(pattern, lowered):
                 found.add(canonical)
                 break
