@@ -7,13 +7,13 @@ Endpoints:
 """
 from __future__ import annotations
 
-import logging
 import os
 import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -21,9 +21,10 @@ from pydantic import BaseModel, Field
 
 from app import metrics
 from app.llm_client import analyze, active_provider
+from app.logging.config import configure_logging
 
-logger = logging.getLogger("resume_jd_matcher")
-logging.basicConfig(level=logging.INFO)
+configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
+logger = structlog.get_logger("resume_jd_matcher")
 
 # Optionally run a consumer in-process (handy for single-process demos/dev so the
 # API and worker share one job store). In production, run app.worker separately
@@ -70,12 +71,23 @@ class AnalyzeRequest(BaseModel):
 async def observability_middleware(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
     start = time.perf_counter()
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=request_id)
     response = await call_next(request)
     elapsed = time.perf_counter() - start
+    elapsed_ms = round(elapsed * 1000, 2)
     response.headers["X-Request-ID"] = request_id
-    response.headers["X-Process-Time-ms"] = str(round(elapsed * 1000, 2))
+    response.headers["X-Process-Time-ms"] = str(elapsed_ms)
     metrics.record_request(
         request.method, request.url.path, response.status_code, elapsed
+    )
+    logger.info(
+        "http_request",
+        method=request.method,
+        path=metrics.normalize_path(request.url.path),
+        raw_path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=elapsed_ms,
     )
     return response
 
@@ -100,13 +112,11 @@ def analyze_endpoint(req: AnalyzeRequest):
     result = analyze(req.resume, req.job_description)
     metrics.record_analysis(result["fit_score"], result["provider"])
     logger.info(
-        "analyzed",
-        extra={
-            "fit_score": result["fit_score"],
-            "provider": result["provider"],
-            "matched": len(result["matched_skills"]),
-            "missing": len(result["missing_skills"]),
-        },
+        "analysis_completed",
+        fit_score=result["fit_score"],
+        provider=result["provider"],
+        matched_count=len(result["matched_skills"]),
+        missing_count=len(result["missing_skills"]),
     )
     return result
 
