@@ -1,4 +1,6 @@
 """Integration tests for the FastAPI app + eval harness."""
+import json
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -47,6 +49,24 @@ def test_metrics_endpoint():
     assert resp.status_code == 200
     assert "analyses_total" in resp.text
     assert "fit_score" in resp.text
+
+
+def test_request_logs_are_structured_json_with_request_id(capsys):
+    request_id = "test-request-123"
+    resp = client.get("/", headers={"X-Request-ID": request_id})
+
+    assert resp.status_code == 200
+    assert resp.headers["X-Request-ID"] == request_id
+
+    logs = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    request_logs = [line for line in logs if line.get("event") == "http_request"]
+    assert request_logs
+    latest = request_logs[-1]
+    assert latest["request_id"] == request_id
+    assert latest["method"] == "GET"
+    assert latest["path"] == "/"
+    assert latest["status_code"] == 200
+    assert isinstance(latest["duration_ms"], float)
 
 
 def test_eval_harness_accuracy():

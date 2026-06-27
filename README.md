@@ -178,7 +178,7 @@ Other endpoints:
 - **Matching core** (`backend/app/matching.py`) — deterministic skill-overlap matcher. The single source of truth for the score.
 - **Suggestions layer** — pluggable provider; `mock` by default, `openrouter` when a key is present.
 - **Frontend** — Next.js single-page experience for paste-and-analyze.
-- **Observability** — Prometheus `/metrics` endpoint.
+- **Observability** — Prometheus `/metrics` endpoint plus JSON request logs with request IDs, normalized paths, status codes, and latency; logs intentionally omit resume/JD bodies.
 - **Optional async path** — a Kafka event-driven analyze pipeline with a Redis shared store, for high-throughput / decoupled processing.
 - **Deploy** — Dockerfiles, Kubernetes manifests, and Terraform under `deploy/`.
 
