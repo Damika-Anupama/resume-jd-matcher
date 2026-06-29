@@ -184,6 +184,17 @@ Other endpoints:
 
 ---
 
+## Data handling and logging
+
+Resume and job-description text can contain private candidate, employer, or compensation details. The API treats those fields as request payload only:
+
+- structured request logs include request ID, method, normalized path, status code, latency, fit score, provider, and skill counts;
+- structured request logs do **not** include the raw `resume` or `job_description` strings;
+- `/metrics` exposes aggregate Prometheus counters/histograms only, not document text;
+- `backend/tests/test_api.py::test_analysis_logs_do_not_leak_resume_or_job_description` pins this behaviour with sentinel private strings.
+
+---
+
 ## Tech stack
 
 | Layer | Technology |
