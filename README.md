@@ -93,6 +93,14 @@ export OPENROUTER_API_KEY=sk-or-...
 
 Without it, the app runs fully offline using the deterministic `mock` provider.
 
+Optional runtime guardrail:
+
+```bash
+export MAX_INPUT_CHARS=20000   # default: 20k chars per resume/JD field
+```
+
+Both `/analyze` and `/analyze/async` reject oversized resume or job-description payloads with HTTP 422. This keeps local demos and low-cost deployments bounded without logging or echoing the raw paste text.
+
 ### Frontend (Next.js)
 
 ```bash
