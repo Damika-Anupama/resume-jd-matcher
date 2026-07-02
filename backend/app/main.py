@@ -26,6 +26,11 @@ from app.logging.config import configure_logging
 configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
 logger = structlog.get_logger("resume_jd_matcher")
 
+# Keep paste-analysis bounded: recruiters can reproduce the app locally without
+# worrying that one huge resume/JD paste will burn memory or produce noisy logs.
+# The limit is configurable for deployments but intentionally finite by default.
+MAX_INPUT_CHARS = int(os.environ.get("MAX_INPUT_CHARS", "20000"))
+
 # Optionally run a consumer in-process (handy for single-process demos/dev so the
 # API and worker share one job store). In production, run app.worker separately
 # and use a shared store (Redis/DB).
@@ -63,8 +68,18 @@ app.add_middleware(
 
 
 class AnalyzeRequest(BaseModel):
-    resume: str = Field(..., min_length=1, description="Candidate resume text")
-    job_description: str = Field(..., min_length=1, description="Target JD text")
+    resume: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_INPUT_CHARS,
+        description="Candidate resume text",
+    )
+    job_description: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_INPUT_CHARS,
+        description="Target JD text",
+    )
 
 
 @app.middleware("http")
@@ -98,6 +113,7 @@ def health():
         "status": "running",
         "service": "resume-jd-matcher",
         "llm_provider": active_provider(),
+        "max_input_chars": MAX_INPUT_CHARS,
     }
 
 

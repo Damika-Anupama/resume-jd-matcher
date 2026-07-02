@@ -3,7 +3,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, MAX_INPUT_CHARS
 from app.evaluate import evaluate
 
 client = TestClient(app)
@@ -14,6 +14,7 @@ def test_health_reports_provider():
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "running"
+    assert body["max_input_chars"] == MAX_INPUT_CHARS
     # With no key configured in the test env, provider must be the safe mock.
     assert body["llm_provider"] in {"mock", "openrouter"}
 
@@ -37,6 +38,30 @@ def test_analyze_returns_structured_match():
 def test_analyze_validates_empty_input():
     resp = client.post("/analyze", json={"resume": "", "job_description": "x"})
     assert resp.status_code == 422
+
+
+def test_analyze_rejects_oversized_resume():
+    resp = client.post(
+        "/analyze",
+        json={
+            "resume": "x" * (MAX_INPUT_CHARS + 1),
+            "job_description": "Python FastAPI",
+        },
+    )
+    assert resp.status_code == 422
+    assert "String should have at most" in resp.text
+
+
+def test_async_analyze_rejects_oversized_job_description():
+    resp = client.post(
+        "/analyze/async",
+        json={
+            "resume": "Python FastAPI",
+            "job_description": "x" * (MAX_INPUT_CHARS + 1),
+        },
+    )
+    assert resp.status_code == 422
+    assert "String should have at most" in resp.text
 
 
 def test_metrics_endpoint():
