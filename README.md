@@ -238,3 +238,9 @@ This is not a weekend prototype with no safety net.
 ## License & honesty note
 
 `resume-jd-matcher` is a transparent skill-overlap matcher with an **optional** LLM suggestions layer. It does not pretend to be an AI oracle. The score is reproducible arithmetic you can read, audit, and trust — and it runs fully offline at zero API cost by default.
+
+## Screenshots
+
+| Input | Results |
+|---|---|
+| ![Resume and JD input view](docs/ui-input.png) | ![Fit score, matched/missing skills and suggestions](docs/ui-results.png) |
