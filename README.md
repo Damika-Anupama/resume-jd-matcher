@@ -1,5 +1,7 @@
 # resume-jd-matcher
 
+[![CI](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml/badge.svg)](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml)
+
 **Find out *why* a resume fails a job description — before an ATS silently rejects it.**
 
 `resume-jd-matcher` is a transparent, deterministic engine that scores how well a resume matches a job description, lists the skills you matched, the skills you're missing, and gives concrete suggestions to close the gap. It is **not** an AI black box — the core score is reproducible skill-overlap math you can read in 50 lines of Python. An optional LLM layer adds natural-language tailoring tips on top.
