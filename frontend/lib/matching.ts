@@ -73,6 +73,22 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Round a fraction (numerator/denominator) to the nearest integer using
+ * round-half-to-even ("banker's rounding"), mirroring Python's built-in
+ * `round()` used by backend/app/matching.py. JS `Math.round()` rounds halves
+ * UP (12.5 -> 13), so it diverges from the backend on exact .5 percentages
+ * (Python: 12.5 -> 12). Integer arithmetic is used so exact ties are detected
+ * without any floating-point error. Keeping this in parity is a P0 invariant.
+ */
+function roundHalfEven(numerator: number, denominator: number): number {
+  const q = Math.floor(numerator / denominator);
+  const twiceRemainder = 2 * (numerator - q * denominator);
+  if (twiceRemainder < denominator) return q;
+  if (twiceRemainder > denominator) return q + 1;
+  return q % 2 === 0 ? q : q + 1; // exact tie -> round to even
+}
+
 export function extractSkills(text: string): Set<string> {
   const lowered = ` ${text.toLowerCase()} `;
   const found = new Set<string>();
@@ -141,7 +157,7 @@ export function computeMatch(resumeText: string, jdText: string): MatchResult {
   const matched = [...jdSkills].filter((s) => resumeSkills.has(s)).sort();
   const missing = [...jdSkills].filter((s) => !resumeSkills.has(s)).sort();
   const extra = [...resumeSkills].filter((s) => !jdSkills.has(s)).sort();
-  const fit = Math.round((100 * matched.length) / jdSkills.size);
+  const fit = roundHalfEven(100 * matched.length, jdSkills.size);
 
   const band = fit >= 80 ? "Strong match" : fit >= 50 ? "Partial match" : "Weak match";
   const summary = `${band}: the resume covers ${matched.length} of ${jdSkills.size} required skills (${fit}%).`;

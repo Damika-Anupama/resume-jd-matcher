@@ -111,8 +111,12 @@ def analyze(resume_text: str, jd_text: str) -> dict:
     if provider == "openrouter":
         try:
             suggestions = _openrouter_suggestions(result, resume_text, jd_text)
-        except (urllib.error.URLError, KeyError, ValueError, TimeoutError):
-            # Honest fallback: never fail the request because the LLM is down.
+        except Exception:
+            # Honest fallback: never fail the request because the LLM is down or
+            # returns something unexpected. This deliberately catches broadly
+            # (network/TLS errors, timeouts, and malformed payloads such as an
+            # empty `choices` list or a null `content`) so /analyze always
+            # succeeds with the deterministic score + mock suggestions.
             suggestions = _mock_suggestions(result)
             provider = "mock (openrouter fallback)"
     else:

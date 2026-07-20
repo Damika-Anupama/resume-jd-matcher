@@ -62,9 +62,19 @@ app.add_middleware(
 )
 
 
+# Upper bound on accepted text length. Long enough for very detailed resumes /
+# JDs, but small enough that the O(text x aliases) skill scan can't be abused as
+# a CPU-DoS vector via a multi-megabyte body. Over-limit input returns 422.
+MAX_TEXT_CHARS = 20_000
+
+
 class AnalyzeRequest(BaseModel):
-    resume: str = Field(..., min_length=1, description="Candidate resume text")
-    job_description: str = Field(..., min_length=1, description="Target JD text")
+    resume: str = Field(
+        ..., min_length=1, max_length=MAX_TEXT_CHARS, description="Candidate resume text"
+    )
+    job_description: str = Field(
+        ..., min_length=1, max_length=MAX_TEXT_CHARS, description="Target JD text"
+    )
 
 
 @app.middleware("http")
