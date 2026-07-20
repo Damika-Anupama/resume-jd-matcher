@@ -54,7 +54,7 @@ Every workload runs with:
 - `automountServiceAccountToken: false`
 - NetworkPolicies (default-deny ingress + scoped allows)
 
-checkov result: **k8s 183/183, terraform 57/57** passing.
+checkov result: **k8s 187/187, terraform 57/57** passing.
 
 > Residual finding `CKV_K8S_43` (pin image by digest) is intentionally deferred
 > to the release pipeline — digests are only knowable once images are published

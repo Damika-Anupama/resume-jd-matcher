@@ -95,3 +95,29 @@ jobs:
 
       - name: Run e2e tests (builds standalone + serves via scripts/serve-e2e.mjs)
         run: npm run test:e2e
+
+  deploy:
+    name: IaC validation (terraform + kubeconform + checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install checkov + kubeconform
+        run: |
+          pipx install checkov
+          curl -sSLo /tmp/kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          sudo tar -C /usr/local/bin -xzf /tmp/kubeconform.tar.gz kubeconform
+
+      - name: Validate IaC (terraform fmt/validate + kubeconform + checkov)
+        run: bash deploy/scripts/validate.sh
