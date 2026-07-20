@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
  * user to connect a backend or paste the text instead.
  */
 const BACKEND_URL = process.env.BACKEND_URL?.replace(/\/$/, "");
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 const BACKEND_TIMEOUT_MS = 15000;
 
 export async function POST(req: NextRequest) {
@@ -39,8 +40,11 @@ export async function POST(req: NextRequest) {
   try {
     const upstream = new FormData();
     upstream.append("file", file, file.name);
+    const headers: Record<string, string> = {};
+    if (BACKEND_API_KEY) headers["X-API-Key"] = BACKEND_API_KEY;
     const resp = await fetch(`${BACKEND_URL}/extract`, {
       method: "POST",
+      headers,
       body: upstream,
       signal: controller.signal,
     });

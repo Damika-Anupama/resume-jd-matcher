@@ -1,10 +1,14 @@
 """FastAPI service for the resume ↔ JD matcher.
 
-Endpoints:
+Endpoints (also mounted under ``/v1`` for versioned clients):
 - GET  /            health check + active provider
 - POST /analyze     { resume, job_description } -> structured match + suggestions
 - POST /extract     multipart file (pdf/docx/txt) -> extracted plain text
 - GET  /metrics     Prometheus text exposition
+
+The analysis endpoints are guarded by optional, env-gated API-key auth and rate
+limiting (see ``app.security``); both are off by default so the service stays
+deploy-safe with no configuration. ``/`` and ``/metrics`` are always open.
 """
 from __future__ import annotations
 
@@ -15,12 +19,12 @@ import uuid
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, File, Request, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Request, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from app import extract, metrics
+from app import extract, metrics, security
 from app.llm_client import analyze, active_provider
 from app.logging.config import configure_logging
 
@@ -53,7 +57,16 @@ async def lifespan(app: FastAPI):
             consumer_thread.join(timeout=5)
 
 
-app = FastAPI(title="Resume ↔ JD Matcher API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Resume ↔ JD Matcher API", version="1.1.0", lifespan=lifespan)
+
+# Analysis endpoints live on a router guarded by the optional auth + rate-limit
+# dependencies, then mounted twice: at the root (back-compat) and under /v1.
+api = APIRouter(
+    dependencies=[
+        Depends(security.require_api_key),
+        Depends(security.enforce_rate_limit),
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -118,7 +131,7 @@ def metrics_endpoint():
     return Response(content=payload, media_type=content_type)
 
 
-@app.post("/analyze")
+@api.post("/analyze")
 def analyze_endpoint(req: AnalyzeRequest):
     result = analyze(req.resume, req.job_description)
     metrics.record_analysis(result["fit_score"], result["provider"])
@@ -132,7 +145,7 @@ def analyze_endpoint(req: AnalyzeRequest):
     return result
 
 
-@app.post("/extract")
+@api.post("/extract")
 async def extract_endpoint(file: UploadFile = File(...)):
     """Extract plain text from an uploaded resume file (PDF / DOCX / TXT).
 
@@ -162,7 +175,7 @@ async def extract_endpoint(file: UploadFile = File(...)):
     return {"filename": file.filename, "chars": len(text), "text": text}
 
 
-@app.post("/analyze/async", status_code=202)
+@api.post("/analyze/async", status_code=202)
 def analyze_async_endpoint(req: AnalyzeRequest):
     """Enqueue an analysis job on Kafka and return its id immediately.
 
@@ -175,7 +188,7 @@ def analyze_async_endpoint(req: AnalyzeRequest):
     return {"job_id": job_id, "status": "queued"}
 
 
-@app.get("/analyze/status/{job_id}")
+@api.get("/analyze/status/{job_id}")
 def analyze_status_endpoint(job_id: str):
     from app import events
 
@@ -188,3 +201,8 @@ def analyze_status_endpoint(job_id: str):
         "result": job.result,
         "error": job.error,
     }
+
+
+# Mount the guarded API router at the root (back-compat) and under /v1.
+app.include_router(api)
+app.include_router(api, prefix="/v1")
