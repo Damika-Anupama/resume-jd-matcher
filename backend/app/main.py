@@ -3,6 +3,7 @@
 Endpoints:
 - GET  /            health check + active provider
 - POST /analyze     { resume, job_description } -> structured match + suggestions
+- POST /extract     multipart file (pdf/docx/txt) -> extracted plain text
 - GET  /metrics     Prometheus text exposition
 """
 from __future__ import annotations
@@ -14,12 +15,12 @@ import uuid
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, File, Request, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from app import metrics
+from app import extract, metrics
 from app.llm_client import analyze, active_provider
 from app.logging.config import configure_logging
 
@@ -129,6 +130,36 @@ def analyze_endpoint(req: AnalyzeRequest):
         missing_count=len(result["missing_skills"]),
     )
     return result
+
+
+@app.post("/extract")
+async def extract_endpoint(file: UploadFile = File(...)):
+    """Extract plain text from an uploaded resume file (PDF / DOCX / TXT).
+
+    Returns ``{filename, chars, text}`` so the client can populate the resume
+    field for review before analysing. The upload is size-guarded before parsing
+    and the returned text is capped at the same limit as the JSON path.
+    """
+    data = await file.read()
+    if len(data) > extract.MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (max {extract.MAX_UPLOAD_BYTES // (1024 * 1024)} MB).",
+        )
+    try:
+        text = extract.extract_text(file.filename or "", data)
+    except extract.UnsupportedFileType as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except extract.ExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    logger.info(
+        "file_extracted",
+        filename=file.filename,
+        bytes=len(data),
+        chars=len(text),
+    )
+    return {"filename": file.filename, "chars": len(text), "text": text}
 
 
 @app.post("/analyze/async", status_code=202)

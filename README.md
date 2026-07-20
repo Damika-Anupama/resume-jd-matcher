@@ -58,6 +58,12 @@ Response:
   "missing_skills": ["kubernetes", "terraform"],
   "extra_skills": ["docker", "fastapi", "next.js"],
   "summary": "Partial match: the resume covers 2 of 4 required skills (50%).",
+  "required_skills": ["kubernetes", "react", "terraform", "typescript"],
+  "nice_to_have_skills": [],
+  "evidence": {
+    "react": "Built React and Next.js apps in TypeScript with FastAPI and Docker",
+    "typescript": "Built React and Next.js apps in TypeScript with FastAPI and Docker"
+  },
   "suggestions": [
     "Add concrete evidence of kubernetes — a project, metric, or responsibility that demonstrates hands-on use.",
     "Add concrete evidence of terraform — a project, metric, or responsibility that demonstrates hands-on use.",
@@ -103,7 +109,14 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`, paste a resume and a JD, and see the score, matched/missing skills, and suggestions rendered in the UI.
+Open `http://localhost:3000`, paste a resume and a JD (or **upload a PDF/DOCX/TXT**), and see the score, matched skills with the evidence behind each match, missing skills split into required-gaps vs nice-to-have, extra skills, and suggestions rendered in the UI.
+
+By default the frontend is fully self-contained: matching runs in an in-process
+TypeScript port of the engine (provider `mock`), so it deploys to Vercel with no
+backend. To get **real-LLM suggestions** and **PDF/DOCX upload**, point it at the
+Python backend by setting `BACKEND_URL` (see `frontend/.env.example`); the app
+proxies `/analyze` and `/extract` there and falls back to the local matcher if
+the backend is unreachable.
 
 ---
 
@@ -129,12 +142,28 @@ Response body:
 | `missing_skills` | `string[]` | Required skills absent from the resume |
 | `extra_skills` | `string[]` | Resume skills the JD didn't ask for |
 | `summary` | `string` | One-line human summary of the match |
+| `required_skills` | `string[]` | JD skills classified as **required** (see tiering below) |
+| `nice_to_have_skills` | `string[]` | JD skills classified as **nice-to-have** ("preferred", "a plus", "bonus"…) |
+| `evidence` | `object` | For each matched skill, the resume line it was found on — so the score is explainable |
 | `suggestions` | `string[]` | 3–5 actionable tips to improve fit |
 | `provider` | `string` | `mock` (deterministic) or `openrouter` (LLM) |
+
+**Explainability (additive — never changes `fit_score`).** On top of the score,
+the engine classifies each JD skill as **required** or **nice-to-have** from cue
+words in the job description (a missing *required* skill is a real gap; a missing
+*nice-to-have* is just a bonus), and returns **evidence** — the resume line each
+matched skill was found on. `fit_score` remains pure JD-coverage arithmetic, so
+the golden-set numbers are unchanged and reproducible.
+
+**`POST /extract`** — multipart file upload (field `file`). Extracts plain text
+from a **PDF / DOCX / TXT** resume so you can analyse a real file instead of
+pasting. Returns `{filename, chars, text}`; size-guarded (5 MB) and capped to the
+same text limit as `/analyze`. Unsupported types → 415, corrupt files → 422.
 
 Other endpoints:
 
 - `GET /` — liveness probe (returns `{"status":"running", ...}`).
+- `POST /analyze/async` + `GET /analyze/status/{job_id}` — optional Kafka-backed async path.
 - `GET /metrics` — Prometheus metrics (request counts, latency, score distribution).
 
 ---

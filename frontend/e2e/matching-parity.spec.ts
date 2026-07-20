@@ -47,3 +47,40 @@ test.describe("matcher parity with Python reference (round-half-to-even)", () =>
     ).toBe(50);
   });
 });
+
+/**
+ * Parity for the explainability fields (tiering + evidence) against the same
+ * reference values pinned in backend/tests/test_matching.py, so the TS port in
+ * lib/matching.ts can never silently drift from the Python engine.
+ */
+test.describe("explainability parity (tiering + evidence)", () => {
+  test("inline 'is a plus' clause is sentence-scoped", async ({ request }) => {
+    const res = await request.post("/api/analyze", {
+      data: {
+        resume: "React developer.",
+        job_description:
+          "Required: React, TypeScript and Docker. Experience with Kubernetes is a plus.",
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(new Set(body.required_skills)).toEqual(
+      new Set(["react", "typescript", "docker"])
+    );
+    expect(body.nice_to_have_skills).toEqual(["kubernetes"]);
+  });
+
+  test("evidence points to the matching resume line", async ({ request }) => {
+    const res = await request.post("/api/analyze", {
+      data: {
+        resume: "Summary\nBuilt data pipelines in Python at scale.\nAlso used Docker.",
+        job_description: "Need Python and Docker.",
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.evidence.python).toContain("Python");
+    expect(body.evidence.docker).toContain("Docker");
+    expect(Object.keys(body.evidence).sort()).toEqual(body.matched_skills.sort());
+  });
+});
