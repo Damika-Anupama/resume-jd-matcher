@@ -12,73 +12,20 @@ deterministic skeleton, but the structured score is always reproducible.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # A compact, extensible skill dictionary. Canonical name -> alias patterns.
-# Kept intentionally small and transparent; real deployments can expand it.
-SKILL_ALIASES: dict[str, list[str]] = {
-    "react": ["react", "react.js", "reactjs"],
-    "next.js": ["next.js", "nextjs", "next js"],
-    "typescript": ["typescript", "ts"],
-    "javascript": ["javascript", "js", "es6"],
-    "python": ["python"],
-    "fastapi": ["fastapi"],
-    "django": ["django"],
-    "node.js": ["node.js", "nodejs", "node js", "express"],
-    "rest apis": ["rest api", "rest apis", "restful", "rest"],
-    "postgresql": ["postgresql", "postgres"],
-    "mysql": ["mysql"],
-    "mongodb": ["mongodb", "mongo"],
-    "docker": ["docker", "containerization", "containers"],
-    "kubernetes": ["kubernetes", "k8s", "eks", "gke"],
-    "terraform": ["terraform", "iac", "infrastructure as code"],
-    "aws": ["aws", "amazon web services"],
-    "gcp": ["gcp", "google cloud"],
-    "ci/cd": ["ci/cd", "cicd", "continuous integration", "github actions"],
-    "prometheus": ["prometheus"],
-    "grafana": ["grafana"],
-    "observability": ["observability", "monitoring", "logging", "tracing"],
-    "kafka": ["kafka", "pub/sub", "event-driven"],
-    "llm": ["llm", "large language model", "openai", "anthropic", "rag", "gpt"],
-    "playwright": ["playwright", "e2e testing", "end-to-end tests"],
-    "testing": ["unit test", "unit tests", "integration test", "integration tests", "pytest", "jest", "testing", "test coverage"],
-    "graphql": ["graphql"],
-    "redis": ["redis", "caching"],
-    "microservices": ["microservices", "distributed systems"],
-    # --- expanded coverage (common real-world resume/JD skills) ---
-    "java": ["java"],
-    "spring": ["spring", "spring boot"],
-    "go": ["golang", "go lang"],
-    "rust": ["rust"],
-    "c++": ["c++", "cpp"],
-    "c#": ["c#", ".net", "dotnet", "asp.net"],
-    "ruby": ["ruby", "ruby on rails", "rails"],
-    "php": ["php", "laravel"],
-    "vue": ["vue", "vue.js", "vuejs"],
-    "angular": ["angular", "angularjs"],
-    "svelte": ["svelte", "sveltekit"],
-    "tailwind": ["tailwind", "tailwindcss"],
-    "html/css": ["html", "css", "scss", "sass"],
-    "sql": ["sql"],
-    "nosql": ["nosql", "dynamodb", "cassandra"],
-    "elasticsearch": ["elasticsearch", "elastic search", "opensearch"],
-    "azure": ["azure", "microsoft azure"],
-    "serverless": ["serverless", "lambda", "cloud functions"],
-    "celery": ["celery"],
-    "rabbitmq": ["rabbitmq", "amqp"],
-    "spark": ["spark", "pyspark", "apache spark"],
-    "airflow": ["airflow"],
-    "pandas": ["pandas", "numpy"],
-    "pytorch": ["pytorch", "torch"],
-    "tensorflow": ["tensorflow", "keras"],
-    "scikit-learn": ["scikit-learn", "sklearn", "scikit learn"],
-    "machine learning": ["machine learning", "ml", "deep learning"],
-    "nlp": ["nlp", "natural language processing"],
-    "data engineering": ["data engineering", "etl", "elt", "data pipeline", "data pipelines"],
-    "agile": ["agile", "scrum", "kanban"],
-    "git": ["git", "github", "gitlab", "version control"],
-}
+#
+# This JSON file is the SINGLE SOURCE OF TRUTH for both the Python matcher and
+# the TypeScript port (frontend/lib/matching.ts). The frontend copy
+# (frontend/lib/skills.json) is generated from this file by
+# `scripts/sync-skills.mjs`, and CI fails on drift, so the two matchers can
+# never disagree on which skills exist.
+_SKILLS_PATH = Path(__file__).with_name("skills.json")
+SKILL_ALIASES: dict[str, list[str]] = json.loads(_SKILLS_PATH.read_text(encoding="utf-8"))
 
 
 def extract_skills(text: str) -> set[str]:

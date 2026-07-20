@@ -6,68 +6,15 @@
  * The structured score here is identical in spirit to the backend's.
  */
 
-export const SKILL_ALIASES: Record<string, string[]> = {
-  react: ["react", "react.js", "reactjs"],
-  "next.js": ["next.js", "nextjs", "next js"],
-  typescript: ["typescript", "ts"],
-  javascript: ["javascript", "js", "es6"],
-  python: ["python"],
-  fastapi: ["fastapi"],
-  django: ["django"],
-  "node.js": ["node.js", "nodejs", "node js", "express"],
-  "rest apis": ["rest api", "rest apis", "restful", "rest"],
-  postgresql: ["postgresql", "postgres"],
-  mysql: ["mysql"],
-  mongodb: ["mongodb", "mongo"],
-  docker: ["docker", "containerization", "containers"],
-  kubernetes: ["kubernetes", "k8s", "eks", "gke"],
-  terraform: ["terraform", "iac", "infrastructure as code"],
-  aws: ["aws", "amazon web services"],
-  gcp: ["gcp", "google cloud"],
-  "ci/cd": ["ci/cd", "cicd", "continuous integration", "github actions"],
-  prometheus: ["prometheus"],
-  grafana: ["grafana"],
-  observability: ["observability", "monitoring", "logging", "tracing"],
-  kafka: ["kafka", "pub/sub", "event-driven"],
-  llm: ["llm", "large language model", "openai", "anthropic", "rag", "gpt"],
-  playwright: ["playwright", "e2e testing", "end-to-end tests"],
-  testing: ["unit test", "unit tests", "integration test", "integration tests", "pytest", "jest", "testing", "test coverage"],
-  graphql: ["graphql"],
-  redis: ["redis", "caching"],
-  microservices: ["microservices", "distributed systems"],
-  // --- expanded coverage (kept in sync with backend/app/matching.py) ---
-  java: ["java"],
-  spring: ["spring", "spring boot"],
-  go: ["golang", "go lang"],
-  rust: ["rust"],
-  "c++": ["c++", "cpp"],
-  "c#": ["c#", ".net", "dotnet", "asp.net"],
-  ruby: ["ruby", "ruby on rails", "rails"],
-  php: ["php", "laravel"],
-  vue: ["vue", "vue.js", "vuejs"],
-  angular: ["angular", "angularjs"],
-  svelte: ["svelte", "sveltekit"],
-  tailwind: ["tailwind", "tailwindcss"],
-  "html/css": ["html", "css", "scss", "sass"],
-  sql: ["sql"],
-  nosql: ["nosql", "dynamodb", "cassandra"],
-  elasticsearch: ["elasticsearch", "elastic search", "opensearch"],
-  azure: ["azure", "microsoft azure"],
-  serverless: ["serverless", "lambda", "cloud functions"],
-  celery: ["celery"],
-  rabbitmq: ["rabbitmq", "amqp"],
-  spark: ["spark", "pyspark", "apache spark"],
-  airflow: ["airflow"],
-  pandas: ["pandas", "numpy"],
-  pytorch: ["pytorch", "torch"],
-  tensorflow: ["tensorflow", "keras"],
-  "scikit-learn": ["scikit-learn", "sklearn", "scikit learn"],
-  "machine learning": ["machine learning", "ml", "deep learning"],
-  nlp: ["nlp", "natural language processing"],
-  "data engineering": ["data engineering", "etl", "elt", "data pipeline", "data pipelines"],
-  agile: ["agile", "scrum", "kanban"],
-  git: ["git", "github", "gitlab", "version control"],
-};
+import SKILL_ALIASES_JSON from "./skills.json";
+
+/**
+ * Canonical skill dictionary. Generated from backend/app/skills.json (the single
+ * source of truth for both matchers) by scripts/sync-skills.mjs — do NOT edit
+ * lib/skills.json by hand. Edit the backend copy and run the sync script; CI
+ * fails on drift so the Python and TypeScript matchers can never disagree.
+ */
+export const SKILL_ALIASES: Record<string, string[]> = SKILL_ALIASES_JSON;
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
