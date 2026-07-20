@@ -272,6 +272,14 @@ def _print_human(golden: dict, metrics: dict) -> None:
 
 
 def main() -> int:
+    # Windows consoles default to cp1252, which can't encode the "↔" in the
+    # report header (raises UnicodeEncodeError). Force UTF-8 so the human report
+    # prints everywhere; on POSIX/CI this is already the default.
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     golden = evaluate()
     metrics = evaluate_metrics()
     if "--json" in sys.argv:

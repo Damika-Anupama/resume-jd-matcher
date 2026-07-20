@@ -45,6 +45,27 @@ def test_data_pipelines_plural_matches():
     assert "data engineering" in extract_skills("Owns the data pipelines")
 
 
+def test_bare_english_words_are_not_phantom_skills():
+    """Ambiguous bare aliases were removed to cut false positives.
+
+    'rest' (the English word), 'caching' (only redis-implied), and 'agile' (the
+    adjective) must NOT extract phantom skills, while the specific, unambiguous
+    aliases for the same canonical skill still do.
+    """
+    # 'rest' the word must not yield "rest apis"; RESTful/REST API still do.
+    assert "rest apis" not in extract_skills("We value rest and work-life balance")
+    assert "rest apis" in extract_skills("Designs RESTful services")
+    assert "rest apis" in extract_skills("Built REST APIs in FastAPI")
+
+    # 'caching' alone must not yield redis; the word 'redis' still does.
+    assert "redis" not in extract_skills("caching fruit for the winter")
+    assert "redis" in extract_skills("Redis for hot-path caching")
+
+    # 'agile' the adjective must not yield the skill; scrum/kanban still do.
+    assert "agile" not in extract_skills("A small, agile, fast-moving team")
+    assert "agile" in extract_skills("Runs Scrum with Kanban boards")
+
+
 def test_expanded_dictionary_recognises_common_skills():
     text = "Java Spring Boot, Vue.js, Tailwind, Airflow, PyTorch, scikit-learn"
     skills = extract_skills(text)
