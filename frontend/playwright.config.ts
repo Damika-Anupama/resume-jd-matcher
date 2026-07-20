@@ -23,9 +23,11 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "npm run start",
+        // `next start` is incompatible with `output: "standalone"`, so serve the
+        // standalone build (with static assets colocated) via scripts/serve-e2e.mjs.
+        command: "npm run build && npm run start:e2e",
         url: "http://localhost:3000",
-        timeout: 120_000,
+        timeout: 180_000,
         reuseExistingServer: !process.env.CI,
       },
 });
