@@ -166,6 +166,20 @@ Other endpoints:
 - `POST /analyze/async` + `GET /analyze/status/{job_id}` — optional Kafka-backed async path.
 - `GET /metrics` — Prometheus metrics (request counts, latency, score distribution).
 
+Every analysis endpoint is also mounted under **`/v1`** (`POST /v1/analyze`,
+`POST /v1/extract`, …) so clients can pin a version; the unprefixed paths remain
+as back-compat aliases.
+
+### Hardening the public API (optional, env-gated)
+
+Off by default so the service stays deploy-safe with zero config (like the
+mock-LLM default). Enable for a public deployment:
+
+| Env var | Effect |
+|---|---|
+| `API_KEYS` | Comma-separated accepted keys. When set, `/analyze` and `/extract` require a matching key in `X-API-Key` (or `Authorization: Bearer <key>`). `/` and `/metrics` stay open. |
+| `RATE_LIMIT_PER_MINUTE` | Per-client rolling-60s request cap (`0`/unset = unlimited). Over-limit → `429` with `Retry-After`. Client = API key if present, else source IP. |
+
 ---
 
 ## Architecture

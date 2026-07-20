@@ -14,6 +14,7 @@ import { computeMatch } from "@/lib/matching";
  *    the structured score is identical either way.
  */
 const BACKEND_URL = process.env.BACKEND_URL?.replace(/\/$/, "");
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 const BACKEND_TIMEOUT_MS = 8000;
 
 export async function POST(req: NextRequest) {
@@ -51,9 +52,11 @@ async function tryBackend(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), BACKEND_TIMEOUT_MS);
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (BACKEND_API_KEY) headers["X-API-Key"] = BACKEND_API_KEY;
     const resp = await fetch(`${BACKEND_URL}/analyze`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ resume, job_description: jd }),
       signal: controller.signal,
     });
