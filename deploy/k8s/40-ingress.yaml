@@ -11,22 +11,41 @@ spec:
     - host: resume-jd-matcher.local
       http:
         paths:
-          # The Next.js frontend is fully self-contained: it serves the UI AND
-          # the /api/analyze route handler in-process (deterministic matcher, no
-          # API key required), so all traffic goes to it.
-          #
-          # NOTE: the previous rule sent `/api` to the FastAPI `backend` Service
-          # with `rewrite-target: /`. That was broken — the backend exposes
-          # `/analyze` (not `/api/analyze`), so requests arrived as `POST /`
-          # (405), and it also shadowed the frontend's own /api/analyze handler.
-          # To expose the Python backend (for its real-LLM provider) instead,
-          # add a SEPARATE Ingress with `use-regex: "true"` and
-          # `rewrite-target: /$2` on `path: /api(/|$)(.*)` so /api/analyze ->
-          # /analyze. Left out here to keep a single, verified-working path.
+          # Everything except /api goes to the Next.js frontend (UI). API traffic
+          # is handled by the separate `resume-jd-matcher-api` Ingress below,
+          # which routes to the FastAPI backend for its real-LLM provider path.
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: frontend
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: resume-jd-matcher-api
+  namespace: resume-jd-matcher
+  labels:
+    app.kubernetes.io/name: resume-jd-matcher
+  annotations:
+    # Regex capture + rewrite so the browser-facing /api prefix maps onto the
+    # backend's real routes: /api/analyze -> /analyze, /api/metrics -> /metrics.
+    # The previous single-Ingress version used `rewrite-target: /` on `path:/api`,
+    # which collapsed every request to `POST /` (405, backend has no /api routes).
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: resume-jd-matcher.local
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
                 port:
                   number: 80
