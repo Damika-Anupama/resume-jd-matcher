@@ -5,23 +5,24 @@ metadata:
   namespace: resume-jd-matcher
   labels:
     app.kubernetes.io/name: resume-jd-matcher
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
     - host: resume-jd-matcher.local
       http:
         paths:
-          # API traffic is served by the FastAPI backend.
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: backend
-                port:
-                  number: 80
-          # Everything else is the Next.js frontend.
+          # The Next.js frontend is fully self-contained: it serves the UI AND
+          # the /api/analyze route handler in-process (deterministic matcher, no
+          # API key required), so all traffic goes to it.
+          #
+          # NOTE: the previous rule sent `/api` to the FastAPI `backend` Service
+          # with `rewrite-target: /`. That was broken — the backend exposes
+          # `/analyze` (not `/api/analyze`), so requests arrived as `POST /`
+          # (405), and it also shadowed the frontend's own /api/analyze handler.
+          # To expose the Python backend (for its real-LLM provider) instead,
+          # add a SEPARATE Ingress with `use-regex: "true"` and
+          # `rewrite-target: /$2` on `path: /api(/|$)(.*)` so /api/analyze ->
+          # /analyze. Left out here to keep a single, verified-working path.
           - path: /
             pathType: Prefix
             backend:

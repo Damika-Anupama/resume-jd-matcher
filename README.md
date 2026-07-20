@@ -207,7 +207,7 @@ Other endpoints:
 
 This is not a weekend prototype with no safety net.
 
-- **Unit / integration tests:** `pytest` suite — **24 passed, 2 skipped** (the 2 skips require live Kafka/Redis, which are off in local/CI without Docker).
+- **Unit / integration tests:** `pytest` suite — **25 passed, 2 skipped** (the 2 skips require live Kafka/Redis, which are off in local/CI without Docker).
 
   ```bash
   cd backend && pytest
