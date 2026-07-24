@@ -131,7 +131,11 @@ fails CI instead of passing silently. Methodology and current numbers:
   (npm audit, pip-audit), CodeQL, Dependabot, and IaC validation
   (terraform validate, kubeconform, Checkov).
 
-<!-- test-counts: updated at release -->
+Current counts (from `pytest -q -m "not integration"` and `npx playwright test`
+at release): **118 backend tests**, **176 Playwright tests** (88 scenarios ×
+desktop + mobile Chromium), and **35 shared Python↔TypeScript contract
+fixtures** — all passing, with `npm audit --omit=dev` and `pip-audit` reporting
+zero known vulnerabilities.
 
 ## Development
 
