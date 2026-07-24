@@ -1,0 +1,37 @@
+# Publishes the sanitized client-only demo to the public mirror repository.
+# Runs ONLY in the private full-source repository (guarded below) and uses a
+# repository-scoped deploy key (secret DEMO_DEPLOY_KEY), not a broad PAT.
+name: Publish demo mirror
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "docs/public-demo-README.md"
+      - "scripts/publish-demo.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    # Fail-safe: never run from the public repository itself.
+    if: github.repository == 'Damika-Anupama/resume-jd-matcher-work'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Set up deploy key
+        env:
+          DEMO_DEPLOY_KEY: ${{ secrets.DEMO_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEMO_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+      - name: Build, gate, and publish
+        env:
+          PUBLIC_REPO_SSH: git@github.com:Damika-Anupama/resume-jd-matcher.git
+        run: |
+          bash scripts/publish-demo.sh /tmp/demo-artifact --push
