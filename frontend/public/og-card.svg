@@ -1,0 +1,58 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Resume and job description matcher — see the skill gaps before you apply. Private keyword-coverage check that runs in your browser.">
+  <!-- Source for public/og-card.png (rendered at 1200x630). Hand-authored; no external assets. -->
+  <defs>
+    <style>
+      text { font-family: ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="630" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#4f46e5"/>
+
+  <!-- Brand row -->
+  <rect x="80" y="88" width="14" height="14" rx="3" fill="#4f46e5"/>
+  <text x="106" y="101" font-size="22" font-weight="600" letter-spacing="1.5" fill="#475569">RESUME ↔ JD MATCHER</text>
+
+  <!-- Headline -->
+  <text x="80" y="228" font-size="64" font-weight="700" fill="#0f172a">See the skill gaps</text>
+  <text x="80" y="304" font-size="64" font-weight="700" fill="#0f172a">before you apply.</text>
+
+  <!-- Subline -->
+  <text x="80" y="368" font-size="27" fill="#475569">A private keyword-coverage check that runs</text>
+  <text x="80" y="404" font-size="27" fill="#475569">entirely in your browser.</text>
+
+  <!-- Trust chips -->
+  <g font-size="21" font-weight="600">
+    <rect x="80" y="452" width="150" height="46" rx="23" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="155" y="482" text-anchor="middle" fill="#334155">No signup</text>
+    <rect x="246" y="452" width="256" height="46" rx="23" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="374" y="482" text-anchor="middle" fill="#334155">Runs in your browser</text>
+    <rect x="518" y="452" width="192" height="46" rx="23" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="614" y="482" text-anchor="middle" fill="#334155">Nothing stored</text>
+  </g>
+
+  <!-- Mini result card -->
+  <g>
+    <rect x="812" y="118" width="312" height="400" rx="18" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="844" y="172" font-size="20" font-weight="600" letter-spacing="1" fill="#64748b">REQUIRED COVERAGE</text>
+    <text x="844" y="230" font-size="52" font-weight="700" fill="#0f172a">5 of 7</text>
+
+    <!-- coverage bar -->
+    <rect x="844" y="256" width="248" height="12" rx="6" fill="#e2e8f0"/>
+    <rect x="844" y="256" width="177" height="12" rx="6" fill="#4f46e5"/>
+
+    <!-- keyword rows -->
+    <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M848 316 l8 8 l14 -16" stroke="#047857" stroke-width="4"/>
+      <path d="M848 366 l8 8 l14 -16" stroke="#047857" stroke-width="4"/>
+      <path d="M850 408 l18 18 M868 408 l-18 18" stroke="#b91c1c" stroke-width="4"/>
+      <path d="M850 458 l18 18 M868 458 l-18 18" stroke="#b91c1c" stroke-width="4"/>
+    </g>
+    <g font-size="24" fill="#334155">
+      <text x="892" y="322">react</text>
+      <text x="892" y="372">typescript</text>
+      <text x="892" y="424" fill="#b91c1c">kubernetes</text>
+      <text x="892" y="474" fill="#b91c1c">terraform</text>
+    </g>
+  </g>
+</svg>
