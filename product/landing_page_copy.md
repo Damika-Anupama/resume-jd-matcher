@@ -1,5 +1,14 @@
 # Landing Page Copy — resume-jd-matcher
 
+> **INTERNAL DRAFT — NOT FOR PUBLICATION.**
+> The "social proof" quotes below are **placeholders, not real testimonials**,
+> and must never ship. Several claims here also predate the honesty cutover
+> and are now **inaccurate for the public demo**: the product is a
+> browser-local *keyword-coverage* check — it does NOT use "the same keyword
+> logic an ATS uses", does not simulate any ATS, and the score counts
+> **required** keywords only. Rewrite against README.md / ADR 0001 before any
+> external use.
+
 > Target buyer: active job seekers in tech (and bootcamp grads) who keep getting auto-rejected and don't know why.
 
 ---

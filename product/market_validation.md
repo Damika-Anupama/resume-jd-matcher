@@ -1,5 +1,9 @@
 # resume-jd-matcher — Market Validation Report
 
+> **INTERNAL DRAFT — NOT FOR PUBLICATION.** Research notes for Damika only.
+> Pricing figures and market-size numbers are third-party estimates gathered
+> in 2026 and must be re-verified before quoting anywhere.
+
 **Verdict: PIVOT / CONDITIONAL-GO (niche, not a paid consumer SaaS).**
 Build it open-source-first as a free, explainable, offline/self-hostable developer tool + API. Do NOT try to out-charge Jobscan as another paid B2C ATS checker — that lane is saturated by funded incumbents and a wall of free tools. The honest opportunity is the *developer/open-source/API* angle, monetized thinly (or not at all at first).
 
