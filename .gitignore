@@ -33,3 +33,4 @@ dist/
 *.tfstate.*
 .terraform.lock.hcl
 crash.log
+.gstack/

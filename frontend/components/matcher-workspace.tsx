@@ -1,9 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-// integration: rewrite to "@/lib/matching" + "@/lib/parse-file" and delete components/shims/
-import { computeMatch, type MatchResult } from "./shims/matching";
-import { MAX_TEXT_CHARS, parseResumeFile } from "./shims/parse-file";
+import { computeMatch, type MatchResult } from "@/lib/matching";
+import { MAX_TEXT_CHARS, parseResumeFile } from "@/lib/parse-file";
 import { MatcherForm } from "./matcher-form";
 import { AnalysisResults } from "./analysis-results";
 import { SAMPLE_JD, SAMPLE_RESUME } from "./sample-data";

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, type ReactNode, type RefObject } from "react";
-// integration: rewrite to "@/lib/matching" and delete components/shims/
-import type { MatchResult } from "./shims/matching";
+import type { MatchResult } from "@/lib/matching";
 import {
   CheckIcon,
   CircleDashIcon,

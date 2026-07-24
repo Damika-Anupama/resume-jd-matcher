@@ -1,8 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-// integration: rewrite to "@/lib/parse-file" and delete components/shims/
-import { MAX_TEXT_CHARS, SUPPORTED_EXTENSIONS } from "./shims/parse-file";
+import { MAX_TEXT_CHARS, SUPPORTED_EXTENSIONS } from "@/lib/parse-file";
 import { CheckIcon, ShieldIcon } from "./icons";
 
 interface MatcherFormProps {

@@ -139,9 +139,13 @@ test.describe("copy improvement plan", () => {
     await page.getByTestId("copy-plan-button").click();
     const clipboard = await page.evaluate(() => navigator.clipboard.readText());
 
-    // The plan carries at least one suggestion...
+    // The plan carries at least one suggestion. innerText of the list items
+    // includes the visual "1." marker and a layout newline, so compare on
+    // whitespace-normalised text.
+    const norm = (t: string) => t.replace(/\s+/g, " ").trim();
+    const normalClipboard = norm(clipboard);
     const carriesSuggestion = suggestions.some((s) =>
-      clipboard.includes(s.trim().slice(0, 40))
+      normalClipboard.includes(norm(s).slice(0, 40))
     );
     expect(carriesSuggestion).toBe(true);
     // ...but never the raw resume text.
