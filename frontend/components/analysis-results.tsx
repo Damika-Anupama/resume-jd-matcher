@@ -107,6 +107,11 @@ function ListSection({
   );
 }
 
+/** Display-only cleanup: drop a leading bullet marker from an evidence line. */
+function displayEvidence(snippet: string): string {
+  return snippet.replace(/^[-•*–—]\s+/, "");
+}
+
 function buildPlanText(result: MatchResult): string {
   const lines: string[] = ["Improvement plan — resume ↔ JD keyword coverage", ""];
   lines.push(result.summary, "");
@@ -292,7 +297,7 @@ export function AnalysisResults({ result, headingRef, onStartOver }: AnalysisRes
                   </span>
                   {result.evidence[s] && (
                     <p className="mt-1 break-words pl-[22px] text-xs text-emerald-900/80">
-                      “{result.evidence[s]}”
+                      “{displayEvidence(result.evidence[s])}”
                     </p>
                   )}
                 </li>
@@ -420,6 +425,7 @@ export function AnalysisResults({ result, headingRef, onStartOver }: AnalysisRes
             <button
               type="button"
               data-testid="copy-plan-button"
+              aria-live="polite"
               onClick={copyPlan}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
             >
