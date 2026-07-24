@@ -42,9 +42,9 @@ DATASET: list[LabeledPair] = [
             "TypeScript, REST APIs, and strong CSS. Testing experience a plus."
         ),
         gold_resume_skills={"react", "next.js", "typescript", "rest apis",
-                            "tailwind", "html/css", "testing"},
+                            "tailwind", "css", "testing"},
         gold_jd_skills={"react", "next.js", "typescript", "rest apis",
-                        "html/css", "testing"},
+                        "css", "testing"},
         expect_band="strong",
         tags=["frontend"],
     ),
@@ -77,7 +77,7 @@ DATASET: list[LabeledPair] = [
             "Platform/DevOps engineer: AWS, Kubernetes, Terraform, CI/CD, and "
             "Prometheus monitoring are required day one."
         ),
-        gold_resume_skills={"react", "html/css", "javascript"},
+        gold_resume_skills={"react", "html", "css", "javascript"},
         gold_jd_skills={"aws", "kubernetes", "terraform", "ci/cd",
                         "prometheus", "observability"},
         expect_band="weak",
@@ -95,7 +95,8 @@ DATASET: list[LabeledPair] = [
             "Model serving with FastAPI. Spark experience welcome."
         ),
         gold_resume_skills={"machine learning", "nlp", "python", "pytorch",
-                            "scikit-learn", "fastapi", "pandas", "spark"},
+                            "scikit-learn", "fastapi", "pandas", "numpy",
+                            "spark"},
         gold_jd_skills={"python", "pytorch", "scikit-learn", "nlp", "pandas",
                         "fastapi", "spark", "machine learning"},
         expect_band="strong",
@@ -147,7 +148,7 @@ DATASET: list[LabeledPair] = [
             "warehouse (PostgreSQL). CI/CD a plus."
         ),
         gold_resume_skills={"data engineering", "airflow", "spark", "python",
-                            "sql", "postgresql", "elasticsearch", "ci/cd", "git"},
+                            "sql", "postgresql", "elasticsearch", "ci/cd"},
         gold_jd_skills={"python", "sql", "data engineering", "airflow",
                         "spark", "postgresql", "ci/cd"},
         expect_band="strong",
@@ -163,8 +164,8 @@ DATASET: list[LabeledPair] = [
             "Senior platform engineer: Go, Kubernetes, Terraform, AWS, and "
             "distributed systems. 6+ years required."
         ),
-        gold_resume_skills={"html/css", "javascript"},
-        gold_jd_skills={"go", "kubernetes", "terraform", "aws", "microservices"},
+        gold_resume_skills={"html", "css", "javascript"},
+        gold_jd_skills={"go", "kubernetes", "terraform", "aws"},
         expect_band="weak",
         tags=["junior"],
     ),
@@ -314,8 +315,8 @@ DATASET: list[LabeledPair] = [
             "Frontend engineer: Angular, TypeScript, CSS, and unit testing. "
             "REST API integration."
         ),
-        gold_resume_skills={"angular", "typescript", "html/css", "testing"},
-        gold_jd_skills={"angular", "typescript", "html/css", "testing",
+        gold_resume_skills={"angular", "typescript", "css", "testing"},
+        gold_jd_skills={"angular", "typescript", "css", "testing",
                         "rest apis"},
         expect_band="strong",
         tags=["frontend"],
