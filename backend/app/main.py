@@ -89,6 +89,14 @@ class AnalyzeRequest(BaseModel):
     job_description: str = Field(
         ..., min_length=1, max_length=MAX_TEXT_CHARS, description="Target JD text"
     )
+    llm_consent: bool = Field(
+        default=False,
+        description=(
+            "Explicit opt-in to send resume/JD text to the configured external "
+            "LLM provider. Off by default: without it the analysis is fully "
+            "deterministic and no text leaves the service."
+        ),
+    )
 
 
 @app.middleware("http")
@@ -133,10 +141,11 @@ def metrics_endpoint():
 
 @api.post("/analyze")
 def analyze_endpoint(req: AnalyzeRequest):
-    result = analyze(req.resume, req.job_description)
+    result = analyze(req.resume, req.job_description, allow_llm=req.llm_consent)
     metrics.record_analysis(result["fit_score"], result["provider"])
     logger.info(
         "analysis_completed",
+        status=result["status"],
         fit_score=result["fit_score"],
         provider=result["provider"],
         matched_count=len(result["matched_skills"]),

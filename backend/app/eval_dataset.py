@@ -23,8 +23,13 @@ class LabeledPair:
     jd: str
     gold_resume_skills: set[str]
     gold_jd_skills: set[str]
-    # Expected fit band: "strong" (>=80), "partial" (50-79), "weak" (<50).
+    # Expected fit band under the v2 (required-coverage) contract:
+    # "strong" (>=80), "partial" (50-79), "weak" (<50), or "unscorable"
+    # (insufficient signal: no recognised required JD skills).
     expect_band: str
+    # Subset of gold_jd_skills a careful reader classifies as nice-to-have;
+    # the human-reference fit is coverage over gold_jd_skills minus this set.
+    gold_nice_jd_skills: set[str] = field(default_factory=set)
     notes: str = ""
     tags: list[str] = field(default_factory=list)
 
@@ -45,6 +50,7 @@ DATASET: list[LabeledPair] = [
                             "tailwind", "css", "testing"},
         gold_jd_skills={"react", "next.js", "typescript", "rest apis",
                         "css", "testing"},
+        gold_nice_jd_skills={"testing"},
         expect_band="strong",
         tags=["frontend"],
     ),
@@ -151,6 +157,7 @@ DATASET: list[LabeledPair] = [
                             "sql", "postgresql", "elasticsearch", "ci/cd"},
         gold_jd_skills={"python", "sql", "data engineering", "airflow",
                         "spark", "postgresql", "ci/cd"},
+        gold_nice_jd_skills={"ci/cd"},
         expect_band="strong",
         tags=["data"],
     ),
@@ -244,11 +251,13 @@ DATASET: list[LabeledPair] = [
                             "kubernetes", "terraform", "python"},
         gold_jd_skills={"kubernetes", "terraform", "prometheus",
                         "observability", "aws", "go"},
-        expect_band="partial",
-        notes="4/6 JD skills present (67%) -> partial. Known limitation: bare "
-              "'Go' in the resume is not extracted (the 2-letter token would "
-              "false-positive on the English verb), so 'golang' is the reliable "
-              "alias; the JD here uses 'Golang'.",
+        gold_nice_jd_skills={"go"},
+        expect_band="strong",
+        notes="v2 required coverage: 'Golang preferred' downgrades go to "
+              "nice-to-have, so 4/5 required (80%) -> strong. Known limitation: "
+              "bare 'Go' in the resume is not extracted (the 2-letter token "
+              "would false-positive on the English verb); 'golang' is the "
+              "reliable alias.",
         tags=["sre", "devops"],
     ),
     LabeledPair(
@@ -301,8 +310,9 @@ DATASET: list[LabeledPair] = [
         ),
         gold_resume_skills={"python", "fastapi", "docker"},
         gold_jd_skills=set(),
-        expect_band="weak",
-        notes="JD lists no recognisable hard skills -> neutral 0 score.",
+        expect_band="unscorable",
+        notes="JD lists no recognisable hard skills -> insufficient_signal, "
+              "no coverage score.",
         tags=["edge"],
     ),
     LabeledPair(
@@ -350,6 +360,7 @@ DATASET: list[LabeledPair] = [
         ),
         gold_resume_skills={"python", "sql", "git", "pandas"},
         gold_jd_skills={"python", "sql", "git", "pandas"},
+        gold_nice_jd_skills={"pandas"},
         expect_band="strong",
         tags=["junior"],
     ),

@@ -14,8 +14,8 @@ def test_health_reports_provider():
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "running"
-    # With no key configured in the test env, provider must be the safe mock.
-    assert body["llm_provider"] in {"mock", "openrouter"}
+    # With no key configured in the test env, provider must be deterministic.
+    assert body["llm_provider"] == "deterministic"
 
 
 def test_analyze_returns_structured_match():
@@ -28,10 +28,17 @@ def test_analyze_returns_structured_match():
     )
     assert resp.status_code == 200
     body = resp.json()
+    assert body["schema_version"] == 2
+    assert body["status"] == "ok"
     assert 0 <= body["fit_score"] <= 100
     assert "react" in body["matched_skills"]
+    assert "react" in body["required_matched"]
+    assert body["required_missing"] == []
+    assert body["nice_to_have_matched"] == []
+    assert body["nice_to_have_missing"] == []
     assert isinstance(body["suggestions"], list)
-    assert "provider" in body
+    assert 0 < len(body["suggestions"]) <= 5
+    assert body["provider"] == "deterministic"
 
 
 def test_analyze_validates_empty_input():
@@ -91,10 +98,11 @@ def test_analyze_at_size_limit_is_accepted():
     assert resp.status_code == 200
 
 
-def test_openrouter_malformed_response_falls_back_to_mock(monkeypatch):
+def test_openrouter_malformed_response_falls_back_to_deterministic(monkeypatch):
     # The LLM is an enhancement, never a dependency: a malformed provider
     # response (e.g. empty "choices" -> IndexError, not in the old except tuple)
-    # must fall back to mock suggestions with HTTP 200, never surface as a 500.
+    # must fall back to deterministic suggestions with HTTP 200, never a 500,
+    # and the provider field must report the fallback honestly.
     monkeypatch.setenv("LLM_PROVIDER", "openrouter")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     import app.llm_client as llm
@@ -106,12 +114,36 @@ def test_openrouter_malformed_response_falls_back_to_mock(monkeypatch):
 
     resp = client.post(
         "/analyze",
-        json={"resume": "Python and FastAPI", "job_description": "Need Python"},
+        json={
+            "resume": "Python and FastAPI",
+            "job_description": "Need Python",
+            "llm_consent": True,
+        },
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["provider"] == "mock (openrouter fallback)"
+    assert body["provider"] == "deterministic (openrouter fallback)"
     assert isinstance(body["suggestions"], list) and body["suggestions"]
+
+
+def test_llm_requires_explicit_consent(monkeypatch):
+    # Even with the provider fully configured, no consent flag means the LLM
+    # must never be called and the provider stays deterministic.
+    monkeypatch.setenv("LLM_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    import app.llm_client as llm
+
+    def must_not_be_called(*_args, **_kwargs):
+        raise AssertionError("LLM called without consent")
+
+    monkeypatch.setattr(llm, "_openrouter_suggestions", must_not_be_called)
+
+    resp = client.post(
+        "/analyze",
+        json={"resume": "Python and FastAPI", "job_description": "Need Python"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["provider"] == "deterministic"
 
 
 def test_eval_harness_accuracy():

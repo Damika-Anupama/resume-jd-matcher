@@ -1,24 +1,32 @@
-"""Deterministic resume ↔ JD matching engine.
+"""Deterministic resume ↔ JD matching engine (contract v2).
 
-This module contains the pure, testable core of the matcher: skill extraction
-and overlap scoring. It has **no** external dependencies and is fully
-deterministic, which makes it ideal for:
+This module contains the pure, testable core of the matcher: skill extraction,
+tier classification, negation filtering, overlap scoring, and deterministic
+suggestions. It has **no** external dependencies and is fully deterministic,
+which makes it ideal for:
 
-- the `mock` LLM provider (so the app and its tests run with no API key), and
-- the evaluation harness (golden-set scoring).
+- the `deterministic` provider (so the app and its tests run with no API key),
+- the browser-local TypeScript port (mirrored byte-for-byte from the same ADR),
+- and the evaluation harness (golden-set scoring).
 
-The LLM providers layer richer natural-language *explanations* on top of this
-deterministic skeleton, but the structured score is always reproducible.
+The normative contract lives in docs/adr/0001-privacy-first-demo-contract.md.
+Highlights (schema_version 2):
 
-On top of the score, the engine also produces two *explainability* signals that
-never change ``fit_score`` (they are purely additive):
+- ``fit_score`` is **required-keyword coverage**:
+  ``round(100 * |required ∩ resume| / |required|)`` with Python banker's
+  rounding. Nice-to-have skills never enter the denominator.
+- ``status`` is ``"insufficient_signal"`` when the recognised required list is
+  empty (no JD skills at all, or all recognised skills are nice-to-have);
+  the UI must not render ``fit_score`` as a score in that case.
+- Resume segments matching the negation / non-experience patterns ("No X
+  experience", "eager to learn X", …) contribute neither skill presence nor
+  evidence. This applies to the resume only; JD-side negation is a documented
+  limitation, as are years-of-experience, proficiency, and recency.
+- ``suggestions`` are deterministic templates composed here (the canonical
+  source); an optional LLM provider may replace them, never the score.
 
-- **Tiering** — each JD skill is classified ``required`` or ``nice_to_have``
-  from cue words in the job description ("preferred", "a plus", "bonus", …).
-  ``fit_score`` is unchanged: it is still coverage over *all* JD skills, so the
-  golden-set numbers stay identical.
-- **Evidence** — for every matched skill, the resume line that mentions it, so
-  the UI can show *where* a skill was found instead of just asserting it was.
+Legacy v1 fields (``matched_skills``/``missing_skills`` unions, tier lists,
+``extra_skills``, ``summary``, ``evidence``) are retained for compatibility.
 """
 from __future__ import annotations
 
@@ -37,10 +45,47 @@ from pathlib import Path
 _SKILLS_PATH = Path(__file__).with_name("skills.json")
 SKILL_ALIASES: dict[str, list[str]] = json.loads(_SKILLS_PATH.read_text(encoding="utf-8"))
 
+SCHEMA_VERSION = 2
+
 # Longest evidence snippet returned per matched skill. Long enough to carry a
 # full bullet point, short enough that the response stays compact and the UI can
 # render it on one or two lines.
 _MAX_EVIDENCE_CHARS = 200
+
+# Shared segmenter: line breaks AND sentence terminators. Used identically for
+# JD tier classification and resume negation filtering (mirrored in the TS
+# port), so an inline "...is a plus." clause or a "No X experience." sentence is
+# scoped to its own segment rather than tainting a whole line.
+_SEGMENT_SPLITTER = re.compile(r"(?:\r\n|\r|\n|(?<=[.;!])\s+)")
+
+# Negation / non-experience patterns (normative list from ADR 0001, identical
+# in the TS port). A resume segment whose lowercased text matches ANY of these
+# contributes neither skill presence nor evidence.
+NON_EVIDENCE_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(p)
+    for p in (
+        r"\bno\s+(?:[a-z0-9.+#/-]+\s+){0,3}(?:experience|exposure|knowledge|background)\b",
+        r"\bwithout\s+(?:[a-z0-9.+#/-]+\s+){0,3}(?:experience|exposure|knowledge)\b",
+        r"\bnever\s+(?:used|worked|written|deployed|touched)\b",
+        r"\bnot\s+(?:familiar|experienced|proficient|comfortable|skilled)\b",
+        r"\bunfamiliar\s+with\b",
+        r"\black(?:s|ing)?\s+(?:of\s+)?(?:experience|knowledge|exposure)\b",
+        r"\b(?:want|wants|hope|hopes|hoping|plan|plans|planning|aspire|aspires"
+        r"|aspiring|eager|keen|willing)\s+to\s+learn\b",
+        r"\b(?:currently|still)\s+learning\b",
+        r"\binterested\s+in\s+learning\b",
+    )
+]
+
+# Summary strings (byte-identical in the TS port — do not edit casually).
+SUMMARY_NO_JD_SKILLS = (
+    "No recognised skill keywords were found in the job description, "
+    "so a coverage score was not computed."
+)
+SUMMARY_ONLY_NICE_TO_HAVE = (
+    "The job description lists only nice-to-have keywords, "
+    "so a required-coverage score was not computed."
+)
 
 # Cue phrases that mark a job-description line (or the section it heads) as
 # describing *nice-to-have* rather than *required* skills. Deliberately
@@ -88,8 +133,19 @@ def _alias_pattern(alias: str) -> re.Pattern[str]:
     return re.compile(r"(?<![a-z0-9.])" + re.escape(alias) + r"(?![a-z0-9])")
 
 
+def split_segments(text: str) -> list[str]:
+    """Split text into the segments used for tiering and negation filtering."""
+    return _SEGMENT_SPLITTER.split(text)
+
+
+def is_non_evidence_segment(segment: str) -> bool:
+    """True when a resume segment is negated/aspirational (per ADR 0001)."""
+    lowered = segment.lower()
+    return any(p.search(lowered) for p in NON_EVIDENCE_PATTERNS)
+
+
 def extract_skills(text: str) -> set[str]:
-    """Return the canonical skills mentioned in a block of text."""
+    """Return the canonical skills mentioned in a block of text (no negation)."""
     lowered = f" {text.lower()} "
     found: set[str] = set()
     for canonical, aliases in SKILL_ALIASES.items():
@@ -97,6 +153,21 @@ def extract_skills(text: str) -> set[str]:
             if _alias_pattern(alias).search(lowered):
                 found.add(canonical)
                 break
+    return found
+
+
+def extract_resume_skills(text: str) -> set[str]:
+    """Extract skills from a resume, ignoring negated/aspirational segments.
+
+    A skill counts as present iff at least one mention occurs in a segment that
+    is NOT non-evidence ("5 years of Python. No Kubernetes experience." yields
+    python but not kubernetes).
+    """
+    found: set[str] = set()
+    for segment in split_segments(text):
+        if not segment or is_non_evidence_segment(segment):
+            continue
+        found |= extract_skills(segment)
     return found
 
 
@@ -117,10 +188,7 @@ def classify_jd_skills(jd_text: str, jd_skills: set[str]) -> dict[str, str]:
     context. Any mention in a required (or neutral) line keeps it ``required``,
     and a skill with no locatable line defaults to ``required``.
     """
-    # Segment on line breaks AND sentence terminators, so an inline
-    # "...is a plus." clause is scoped to its own sentence rather than tainting a
-    # whole "Required: A, B, C. X is a plus." line. Mirrored in the TS port.
-    segments = re.split(r"(?:\r\n|\r|\n|(?<=[.;!])\s+)", jd_text)
+    segments = split_segments(jd_text)
     section_is_nice = False
     line_is_nice: list[bool] = []
     for raw in segments:
@@ -164,16 +232,21 @@ def _collapse(text: str) -> str:
 
 
 def gather_evidence(resume_text: str, matched_skills: list[str]) -> dict[str, str]:
-    """Map each matched skill to the first resume line that mentions it.
+    """Map each matched skill to the first non-negated segment mentioning it.
 
     Returns a whitespace-collapsed snippet capped at ``_MAX_EVIDENCE_CHARS`` so
-    the UI can show *where* a skill was found. Deterministic (first match wins,
-    scanning lines top-to-bottom) and mirrored byte-for-byte by the TS port.
+    the UI can show *where* a skill was found. Negated/aspirational segments
+    never supply evidence (ADR 0001). Deterministic (first match wins, scanning
+    segments top-to-bottom) and mirrored byte-for-byte by the TS port.
     """
-    lines = resume_text.splitlines() or [resume_text]
+    segments = [s for s in split_segments(resume_text) if s.strip()]
+    if not segments:
+        segments = [resume_text]
     evidence: dict[str, str] = {}
     for skill in matched_skills:
-        for raw in lines:
+        for raw in segments:
+            if is_non_evidence_segment(raw):
+                continue
             if _line_mentions_skill(raw.lower(), skill):
                 snippet = _collapse(raw)
                 if len(snippet) > _MAX_EVIDENCE_CHARS:
@@ -183,21 +256,74 @@ def gather_evidence(resume_text: str, matched_skills: list[str]) -> dict[str, st
     return evidence
 
 
+def build_suggestions(
+    required_missing: list[str],
+    nice_to_have_missing: list[str],
+    matched_skills: list[str],
+) -> list[str]:
+    """Deterministic suggestion composition (normative order from ADR 0001).
+
+    1. Up to 3 required-missing items — phrased so we never encourage
+       fabricating experience.
+    2. One aggregated nice-to-have item.
+    3. The all-required-covered item (only when nothing required is missing).
+    4. The lead-with-strengths item.
+    Capped at 5. Callers must pass [] lists for insufficient_signal (which
+    yields no suggestions at the compute_match level).
+    """
+    suggestions: list[str] = []
+    for skill in required_missing[:3]:
+        suggestions.append(
+            f"If you genuinely have {skill} experience, add a concrete example "
+            f"— a project, metric, or responsibility that shows hands-on use."
+        )
+    if nice_to_have_missing:
+        listed = ", ".join(nice_to_have_missing)
+        suggestions.append(
+            f"Optional keywords not found: {listed}. "
+            f"Only add one if you can support it truthfully."
+        )
+    if not required_missing:
+        suggestions.append(
+            "All recognised required keywords are covered — emphasise depth "
+            "and impact (metrics, scale, ownership) for your matched skills."
+        )
+    if matched_skills:
+        top = ", ".join(matched_skills[:3])
+        suggestions.append(
+            f"Lead with your strongest matched skills ({top}) near the top of "
+            f"the resume so they are seen first."
+        )
+    return suggestions[:5]
+
+
 @dataclass
 class MatchResult:
-    fit_score: int  # 0..100
+    fit_score: int  # 0..100 — REQUIRED-keyword coverage (v2)
+    status: str = "ok"  # "ok" | "insufficient_signal"
+    required_matched: list[str] = field(default_factory=list)
+    required_missing: list[str] = field(default_factory=list)
+    nice_to_have_matched: list[str] = field(default_factory=list)
+    nice_to_have_missing: list[str] = field(default_factory=list)
+    # Legacy v1 fields (unions / tier lists), kept for compatibility:
     matched_skills: list[str] = field(default_factory=list)
     missing_skills: list[str] = field(default_factory=list)
     extra_skills: list[str] = field(default_factory=list)
     summary: str = ""
-    # Explainability (additive — never affects fit_score):
     required_skills: list[str] = field(default_factory=list)
     nice_to_have_skills: list[str] = field(default_factory=list)
     evidence: dict[str, str] = field(default_factory=dict)
+    suggestions: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
+            "schema_version": SCHEMA_VERSION,
+            "status": self.status,
             "fit_score": self.fit_score,
+            "required_matched": self.required_matched,
+            "required_missing": self.required_missing,
+            "nice_to_have_matched": self.nice_to_have_matched,
+            "nice_to_have_missing": self.nice_to_have_missing,
             "matched_skills": self.matched_skills,
             "missing_skills": self.missing_skills,
             "extra_skills": self.extra_skills,
@@ -205,59 +331,82 @@ class MatchResult:
             "required_skills": self.required_skills,
             "nice_to_have_skills": self.nice_to_have_skills,
             "evidence": self.evidence,
+            "suggestions": self.suggestions,
         }
 
 
 def compute_match(resume_text: str, jd_text: str) -> MatchResult:
-    """Score how well a resume covers a job description's required skills.
+    """Score how well a resume covers a job description's REQUIRED keywords.
 
-    fit_score = (required skills present in resume) / (required skills in JD).
-    If the JD lists no recognised skills, returns a neutral 0 with empty lists.
-
-    Tiering and evidence are attached for explainability but never change the
-    score: ``fit_score`` remains coverage over *all* recognised JD skills.
+    v2 contract (ADR 0001): tier classification runs first, then
+    ``fit_score = round(100 * |required ∩ resume| / |required|)`` (banker's
+    rounding, matching the TS port). When the required list is empty the result
+    is ``insufficient_signal`` with fit_score 0 and no suggestions; nice-to-have
+    coverage is still reported when present.
     """
     jd_skills = extract_skills(jd_text)
-    resume_skills = extract_skills(resume_text)
+    tiers = classify_jd_skills(jd_text, jd_skills)
+    required = sorted(s for s in jd_skills if tiers[s] == "required")
+    nice_to_have = sorted(s for s in jd_skills if tiers[s] == "nice_to_have")
 
-    if not jd_skills:
+    resume_skills = extract_resume_skills(resume_text)
+
+    required_matched = sorted(set(required) & resume_skills)
+    required_missing = sorted(set(required) - resume_skills)
+    nice_matched = sorted(set(nice_to_have) & resume_skills)
+    nice_missing = sorted(set(nice_to_have) - resume_skills)
+
+    matched = sorted(set(required_matched) | set(nice_matched))
+    missing = sorted(set(required_missing) | set(nice_missing))
+    extra = sorted(resume_skills - jd_skills)
+    evidence = gather_evidence(resume_text, matched)
+
+    if not required:
+        summary = SUMMARY_NO_JD_SKILLS if not jd_skills else SUMMARY_ONLY_NICE_TO_HAVE
         return MatchResult(
             fit_score=0,
-            matched_skills=[],
-            missing_skills=[],
-            extra_skills=sorted(resume_skills),
-            summary="No recognised target skills were found in the job description.",
+            status="insufficient_signal",
+            required_matched=[],
+            required_missing=[],
+            nice_to_have_matched=nice_matched,
+            nice_to_have_missing=nice_missing,
+            matched_skills=matched,
+            missing_skills=missing,
+            extra_skills=extra,
+            summary=summary,
+            required_skills=[],
+            nice_to_have_skills=nice_to_have,
+            evidence=evidence,
+            suggestions=[],
         )
 
-    matched = sorted(jd_skills & resume_skills)
-    missing = sorted(jd_skills - resume_skills)
-    extra = sorted(resume_skills - jd_skills)
-    fit = round(100 * len(matched) / len(jd_skills))
+    fit = round(100 * len(required_matched) / len(required))
 
     if fit >= 80:
-        band = "Strong match"
+        band = "Strong coverage"
     elif fit >= 50:
-        band = "Partial match"
+        band = "Partial coverage"
     else:
-        band = "Weak match"
+        band = "Low coverage"
 
     summary = (
-        f"{band}: the resume covers {len(matched)} of {len(jd_skills)} "
-        f"required skills ({fit}%)."
+        f"{band}: the resume covers {len(required_matched)} of {len(required)} "
+        f"required keywords ({fit}%)."
     )
-
-    tiers = classify_jd_skills(jd_text, jd_skills)
-    required_skills = sorted(s for s in jd_skills if tiers[s] == "required")
-    nice_to_have_skills = sorted(s for s in jd_skills if tiers[s] == "nice_to_have")
-    evidence = gather_evidence(resume_text, matched)
 
     return MatchResult(
         fit_score=fit,
+        status="ok",
+        required_matched=required_matched,
+        required_missing=required_missing,
+        nice_to_have_matched=nice_matched,
+        nice_to_have_missing=nice_missing,
         matched_skills=matched,
         missing_skills=missing,
         extra_skills=extra,
         summary=summary,
-        required_skills=required_skills,
-        nice_to_have_skills=nice_to_have_skills,
+        required_skills=required,
+        nice_to_have_skills=nice_to_have,
         evidence=evidence,
+        suggestions=build_suggestions(required_missing, nice_missing, matched),
     )
