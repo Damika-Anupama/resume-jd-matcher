@@ -364,4 +364,132 @@ DATASET: list[LabeledPair] = [
         expect_band="strong",
         tags=["junior"],
     ),
+    # ----------------------------------------------------------------- #
+    # Adversarial cases: negation, aspiration, stuffing, near-miss names,
+    # abbreviations, tiering, unscorable JDs. All text is synthetic.
+    # ----------------------------------------------------------------- #
+    LabeledPair(
+        name="adv_negation_segment_scoped",
+        resume=(
+            "Five years of Python in production. No Kubernetes experience."
+        ),
+        jd="Python and Kubernetes required.",
+        gold_resume_skills={"python"},
+        gold_jd_skills={"python", "kubernetes"},
+        expect_band="partial",
+        notes="'No Kubernetes experience' must not count as kubernetes.",
+        tags=["adversarial", "negation"],
+    ),
+    LabeledPair(
+        name="adv_aspiration_not_experience",
+        resume="Backend developer in Python. Eager to learn Rust and Go.",
+        jd="Rust required. Python required.",
+        gold_resume_skills={"python"},
+        gold_jd_skills={"rust", "python"},
+        expect_band="partial",
+        notes="Aspirational 'eager to learn Rust' is not rust experience.",
+        tags=["adversarial", "negation"],
+    ),
+    LabeledPair(
+        name="adv_currently_learning",
+        resume="Currently learning Kafka. Ships Python microservices daily.",
+        jd="Kafka, Python and microservices required.",
+        gold_resume_skills={"python", "microservices"},
+        gold_jd_skills={"kafka", "python", "microservices"},
+        expect_band="partial",
+        notes="'Currently learning Kafka' is not kafka experience -> 2/3.",
+        tags=["adversarial", "negation"],
+    ),
+    LabeledPair(
+        name="adv_keyword_stuffing",
+        resume=(
+            "Python Python Python Python Python Python Python Python Python "
+            "Python."
+        ),
+        jd="Python, Docker required.",
+        gold_resume_skills={"python"},
+        gold_jd_skills={"python", "docker"},
+        expect_band="partial",
+        notes="Repeating a keyword 10x counts once; coverage stays 1/2.",
+        tags=["adversarial", "stuffing"],
+    ),
+    LabeledPair(
+        name="adv_out_of_dictionary",
+        resume="Embedded firmware in C and assembly for radio hardware.",
+        jd="C++ and Rust required.",
+        gold_resume_skills=set(),
+        gold_jd_skills={"c++", "rust"},
+        expect_band="weak",
+        notes="Bare 'C' is deliberately outside the dictionary (the 1-letter "
+              "token is unmatchable without false positives) and must not "
+              "match c++.",
+        tags=["adversarial", "c-family"],
+    ),
+    LabeledPair(
+        name="adv_c_family_confusion",
+        resume="C# services on .NET with SQL Server.",
+        jd="Modern C++ required. C# is a plus.",
+        gold_resume_skills={"c#", "sql"},
+        gold_jd_skills={"c++", "c#"},
+        gold_nice_jd_skills={"c#"},
+        expect_band="weak",
+        notes="C# must not satisfy a C++ requirement.",
+        tags=["adversarial", "c-family"],
+    ),
+    LabeledPair(
+        name="adv_java_vs_javascript",
+        resume="Senior JavaScript engineer building browser apps.",
+        jd="Java required. JavaScript is a plus.",
+        gold_resume_skills={"javascript"},
+        gold_jd_skills={"java", "javascript"},
+        gold_nice_jd_skills={"javascript"},
+        expect_band="weak",
+        notes="JavaScript must not satisfy a Java requirement.",
+        tags=["adversarial"],
+    ),
+    LabeledPair(
+        name="adv_go_verb_not_golang",
+        resume="Product manager who led go to market planning.",
+        jd="Golang required.",
+        gold_resume_skills=set(),
+        gold_jd_skills={"go"},
+        expect_band="weak",
+        notes="The English verb 'go' must not match the Go language.",
+        tags=["adversarial"],
+    ),
+    LabeledPair(
+        name="adv_abbreviations",
+        resume="TS apps deployed to k8s. ES6 modules everywhere.",
+        jd="TypeScript, Kubernetes and JavaScript required.",
+        gold_resume_skills={"typescript", "kubernetes", "javascript"},
+        gold_jd_skills={"typescript", "kubernetes", "javascript"},
+        expect_band="strong",
+        notes="ts/k8s/es6 abbreviations must resolve to their canon.",
+        tags=["adversarial", "abbreviations"],
+    ),
+    LabeledPair(
+        name="adv_tiering_sections",
+        resume="Python and FastAPI developer.",
+        jd=(
+            "Requirements:\n- Python\n- FastAPI\n"
+            "Nice to have:\n- Kubernetes\n- Terraform"
+        ),
+        gold_resume_skills={"python", "fastapi"},
+        gold_jd_skills={"python", "fastapi", "kubernetes", "terraform"},
+        gold_nice_jd_skills={"kubernetes", "terraform"},
+        expect_band="strong",
+        notes="v2: nice-to-haves out of the denominator -> 2/2 required.",
+        tags=["adversarial", "tiering"],
+    ),
+    LabeledPair(
+        name="adv_only_nice_to_have_jd",
+        resume="Kubernetes and Terraform platform engineer.",
+        jd="Nice to have: Kubernetes, Terraform.",
+        gold_resume_skills={"kubernetes", "terraform"},
+        gold_jd_skills={"kubernetes", "terraform"},
+        gold_nice_jd_skills={"kubernetes", "terraform"},
+        expect_band="unscorable",
+        notes="All-nice-to-have JD -> insufficient_signal, no score.",
+        tags=["adversarial", "edge"],
+    ),
 ]

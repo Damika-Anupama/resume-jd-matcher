@@ -101,6 +101,24 @@ GOLDEN_SET: list[Case] = [
         must_match=["python", "sql", "airflow", "spark", "postgresql"],
         must_miss=[],
     ),
+    Case(
+        name="negated_experience_not_matched",
+        resume="Strong Python. No Kubernetes experience.",
+        jd="Python and Kubernetes required.",
+        expect_min_fit=50,
+        expect_max_fit=50,
+        must_match=["python"],
+        must_miss=["kubernetes"],
+    ),
+    Case(
+        name="go_verb_guard",
+        resume="Led our go to market strategy.",
+        jd="Golang required.",
+        expect_min_fit=0,
+        expect_max_fit=0,
+        must_match=[],
+        must_miss=["go"],
+    ),
 ]
 
 
