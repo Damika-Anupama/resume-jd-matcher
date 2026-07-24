@@ -59,8 +59,8 @@ def record_analysis(fit_score: int, provider: str) -> None:
     # Collapse the fallback label so cardinality stays bounded.
     if provider.startswith("openrouter"):
         provider_label = "openrouter"
-    elif provider.startswith("mock"):
-        provider_label = "mock"
+    elif provider.startswith("deterministic"):
+        provider_label = "deterministic"
     else:
         provider_label = "other"
     ANALYSES.labels(provider=provider_label).inc()
