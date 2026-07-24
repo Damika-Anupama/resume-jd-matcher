@@ -179,9 +179,13 @@
     "tailwind",
     "tailwindcss"
   ],
-  "html/css": [
+  "html": [
     "html",
+    "html5"
+  ],
+  "css": [
     "css",
+    "css3",
     "scss",
     "sass"
   ],
@@ -222,9 +226,11 @@
   "airflow": [
     "airflow"
   ],
-  "pandas": [
-    "pandas",
+  "numpy": [
     "numpy"
+  ],
+  "pandas": [
+    "pandas"
   ],
   "pytorch": [
     "pytorch",
