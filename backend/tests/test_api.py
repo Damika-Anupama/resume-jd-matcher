@@ -78,7 +78,8 @@ def test_request_logs_are_structured_json_with_request_id(capsys):
 
 def test_analyze_rejects_oversized_input():
     # Guards the CPU-DoS surface: an over-limit body must be rejected (422)
-    # before it reaches the O(text x aliases) skill scan.
+    # before it reaches the O(text x aliases) skill scan, with the typed error
+    # schema and WITHOUT echoing the submitted text back.
     from app.main import MAX_TEXT_CHARS
 
     huge = "x" * (MAX_TEXT_CHARS + 1)
@@ -86,6 +87,57 @@ def test_analyze_rejects_oversized_input():
         "/analyze", json={"resume": huge, "job_description": "Python and FastAPI"}
     )
     assert resp.status_code == 422
+    body = resp.json()
+    assert body["code"] == "text_too_long"
+    assert "xxxx" not in resp.text
+
+
+def test_validation_error_uses_typed_schema_without_echoing_input():
+    resp = client.post("/analyze", json={"resume": "some private text"})
+    assert resp.status_code == 422
+    body = resp.json()
+    assert set(body) == {"error", "code"}
+    assert body["code"] == "invalid_request"
+    assert "some private text" not in resp.text
+
+
+def test_responses_are_never_cached():
+    assert client.get("/").headers["Cache-Control"] == "no-store"
+    resp = client.post(
+        "/analyze", json={"resume": "Python", "job_description": "Python"}
+    )
+    assert resp.headers["Cache-Control"] == "no-store"
+
+
+def test_malicious_request_id_is_replaced():
+    evil = "abc\ndef; rm -rf /"
+    resp = client.get("/", headers={"X-Request-ID": evil})
+    assert resp.status_code == 200
+    echoed = resp.headers["X-Request-ID"]
+    assert echoed != evil
+    import re as _re
+
+    assert _re.fullmatch(r"[A-Za-z0-9._-]{1,64}", echoed)
+
+
+def test_oversized_request_id_is_replaced():
+    long_id = "a" * 65
+    resp = client.get("/", headers={"X-Request-ID": long_id})
+    assert resp.headers["X-Request-ID"] != long_id
+
+
+def test_async_endpoints_fail_deliberately_without_kafka(monkeypatch):
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+    resp = client.post(
+        "/analyze/async",
+        json={"resume": "Python", "job_description": "Python"},
+    )
+    assert resp.status_code == 503
+    assert resp.json()["code"] == "async_disabled"
+
+    status = client.get("/analyze/status/some-job-id")
+    assert status.status_code == 503
+    assert status.json()["code"] == "async_disabled"
 
 
 def test_analyze_at_size_limit_is_accepted():

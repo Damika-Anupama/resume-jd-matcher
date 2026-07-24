@@ -88,6 +88,53 @@ def test_corrupt_pdf_raises_extraction_error():
         extract_text("broken.pdf", b"%PDF-1.4 not really a pdf")
 
 
+def test_pdf_extension_with_wrong_magic_bytes_rejected():
+    # A PNG renamed to .pdf must fail on magic bytes, not extension.
+    with pytest.raises(ExtractionError, match="valid PDF"):
+        extract_text("sneaky.pdf", b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+
+
+def test_docx_extension_with_wrong_magic_bytes_rejected():
+    with pytest.raises(ExtractionError, match="valid DOCX"):
+        extract_text("sneaky.docx", b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+
+
+def test_pdf_with_too_many_pages_rejected():
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    for _ in range(extract.MAX_PDF_PAGES + 1):
+        writer.add_blank_page(width=612, height=792)
+    buf = io.BytesIO()
+    writer.write(buf)
+    with pytest.raises(ExtractionError, match="too many pages"):
+        extract_text("long.pdf", buf.getvalue())
+
+
+def test_docx_with_too_many_zip_entries_rejected():
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        for i in range(extract.MAX_DOCX_ENTRIES + 1):
+            archive.writestr(f"word/media/file{i}.xml", "x")
+    with pytest.raises(ExtractionError, match="too many entries"):
+        extract_text("bomb.docx", buf.getvalue())
+
+
+def test_docx_decompression_bomb_rejected(monkeypatch):
+    import zipfile
+
+    # Keep the fixture cheap: lower the guard, then present an archive whose
+    # declared decompressed size exceeds it.
+    monkeypatch.setattr(extract, "MAX_DOCX_UNCOMPRESSED_BYTES", 1024)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", "a" * 10_000)
+    with pytest.raises(ExtractionError, match="unreasonable size"):
+        extract_text("bomb.docx", buf.getvalue())
+
+
 def test_empty_text_raises_extraction_error():
     with pytest.raises(ExtractionError):
         extract_text("blank.txt", b"   \n\t  \n")
@@ -141,6 +188,9 @@ def test_extract_endpoint_rejects_unsupported_type():
         files={"file": ("photo.png", b"\x89PNG\r\n", "image/png")},
     )
     assert resp.status_code == 415
+    body = resp.json()
+    assert body["code"] == "unsupported_media_type"
+    assert body["error"]
 
 
 def test_extract_endpoint_rejects_oversized_upload():
@@ -150,6 +200,9 @@ def test_extract_endpoint_rejects_oversized_upload():
         files={"file": ("big.txt", huge, "text/plain")},
     )
     assert resp.status_code == 413
+    body = resp.json()
+    assert body["code"] == "payload_too_large"
+    assert body["error"]
 
 
 def test_extract_endpoint_rejects_corrupt_pdf():
@@ -158,3 +211,26 @@ def test_extract_endpoint_rejects_corrupt_pdf():
         files={"file": ("broken.pdf", b"%PDF-1.4 nonsense", "application/pdf")},
     )
     assert resp.status_code == 422
+    assert resp.json()["code"] == "extraction_failed"
+
+
+def test_extract_endpoint_rejects_masqueraded_pdf():
+    resp = client.post(
+        "/extract",
+        files={"file": ("sneaky.pdf", b"\x89PNG\r\n\x1a\n", "application/pdf")},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "extraction_failed"
+
+
+def test_extract_endpoint_never_logs_filename_or_content(capsys):
+    secret_name = "confidential-resume-name.txt"
+    secret_text = "Very Secret Candidate Content"
+    resp = client.post(
+        "/extract",
+        files={"file": (secret_name, secret_text.encode(), "text/plain")},
+    )
+    assert resp.status_code == 200
+    logs = capsys.readouterr().out
+    assert secret_name not in logs
+    assert secret_text not in logs
