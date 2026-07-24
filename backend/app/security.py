@@ -60,7 +60,10 @@ def require_api_key(request: Request) -> None:
         return  # auth disabled — deploy-safe default
     presented = _presented_key(request)
     if presented is None or presented not in keys:
-        raise HTTPException(status_code=401, detail="Missing or invalid API key.")
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Missing or invalid API key.", "code": "unauthorized"},
+        )
 
 
 def enforce_rate_limit(request: Request) -> None:
@@ -83,7 +86,10 @@ def enforce_rate_limit(request: Request) -> None:
             retry_after = max(1, int(_RATE_WINDOW_SECONDS - (now - dq[0])))
             raise HTTPException(
                 status_code=429,
-                detail="Rate limit exceeded. Please slow down.",
+                detail={
+                    "error": "Rate limit exceeded. Please slow down.",
+                    "code": "rate_limited",
+                },
                 headers={"Retry-After": str(retry_after)},
             )
         dq.append(now)

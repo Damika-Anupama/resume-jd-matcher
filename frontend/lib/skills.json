@@ -30,8 +30,7 @@
   "node.js": [
     "node.js",
     "nodejs",
-    "node js",
-    "express"
+    "node js"
   ],
   "rest apis": [
     "rest api",
@@ -50,9 +49,7 @@
     "mongo"
   ],
   "docker": [
-    "docker",
-    "containerization",
-    "containers"
+    "docker"
   ],
   "kubernetes": [
     "kubernetes",
@@ -61,9 +58,7 @@
     "gke"
   ],
   "terraform": [
-    "terraform",
-    "iac",
-    "infrastructure as code"
+    "terraform"
   ],
   "aws": [
     "aws",
@@ -88,13 +83,10 @@
   "observability": [
     "observability",
     "monitoring",
-    "logging",
-    "tracing"
+    "distributed tracing"
   ],
   "kafka": [
-    "kafka",
-    "pub/sub",
-    "event-driven"
+    "kafka"
   ],
   "llm": [
     "llm",
@@ -127,7 +119,7 @@
   ],
   "microservices": [
     "microservices",
-    "distributed systems"
+    "micro-services"
   ],
   "java": [
     "java"
@@ -179,9 +171,13 @@
     "tailwind",
     "tailwindcss"
   ],
-  "html/css": [
+  "html": [
     "html",
+    "html5"
+  ],
+  "css": [
     "css",
+    "css3",
     "scss",
     "sass"
   ],
@@ -204,7 +200,7 @@
   ],
   "serverless": [
     "serverless",
-    "lambda",
+    "aws lambda",
     "cloud functions"
   ],
   "celery": [
@@ -223,7 +219,9 @@
     "airflow"
   ],
   "pandas": [
-    "pandas",
+    "pandas"
+  ],
+  "numpy": [
     "numpy"
   ],
   "pytorch": [
@@ -261,8 +259,6 @@
   ],
   "git": [
     "git",
-    "github",
-    "gitlab",
     "version control"
   ]
 }

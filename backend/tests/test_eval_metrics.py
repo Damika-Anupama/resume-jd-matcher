@@ -100,9 +100,10 @@ def test_eval_metrics_band_accuracy():
 def test_eval_metrics_dataset_is_nontrivial():
     m = evaluate_metrics()
     # Guard against the "empty template emits green" failure: the dataset must
-    # actually contain a meaningful number of labeled pairs.
-    assert m["dataset_size"] >= 15
-    assert m["skill_extraction"]["true_positives"] >= 100
+    # actually contain a meaningful number of labeled pairs, including the
+    # adversarial block (negation, stuffing, near-miss names, tiering).
+    assert m["dataset_size"] >= 30
+    assert m["skill_extraction"]["true_positives"] >= 200
 
 
 # --------------------------------------------------------------------------- #

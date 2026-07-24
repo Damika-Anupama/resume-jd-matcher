@@ -25,7 +25,7 @@ import json
 import sys
 from dataclasses import dataclass
 
-from app.matching import compute_match, extract_skills
+from app.matching import compute_match, extract_resume_skills, extract_skills
 from app.eval_dataset import DATASET, LabeledPair
 
 
@@ -101,6 +101,24 @@ GOLDEN_SET: list[Case] = [
         must_match=["python", "sql", "airflow", "spark", "postgresql"],
         must_miss=[],
     ),
+    Case(
+        name="negated_experience_not_matched",
+        resume="Strong Python. No Kubernetes experience.",
+        jd="Python and Kubernetes required.",
+        expect_min_fit=50,
+        expect_max_fit=50,
+        must_match=["python"],
+        must_miss=["kubernetes"],
+    ),
+    Case(
+        name="go_verb_guard",
+        resume="Led our go to market strategy.",
+        jd="Golang required.",
+        expect_min_fit=0,
+        expect_max_fit=0,
+        must_match=[],
+        must_miss=["go"],
+    ),
 ]
 
 
@@ -152,14 +170,17 @@ def _band(fit: int) -> str:
 
 
 def _reference_fit(pair: LabeledPair) -> float | None:
-    """Human-reference fit % = gold JD skills covered by gold resume skills.
+    """Human-reference fit % under the v2 (required-coverage) contract.
 
-    Returns None when the JD has no gold skills (undefined denominator).
+    Coverage of the gold *required* JD skills (gold JD minus human-labeled
+    nice-to-haves) by the gold resume skills. Returns None when the JD has no
+    gold required skills (undefined denominator / insufficient signal).
     """
-    if not pair.gold_jd_skills:
+    gold_required = pair.gold_jd_skills - pair.gold_nice_jd_skills
+    if not gold_required:
         return None
-    covered = pair.gold_jd_skills & pair.gold_resume_skills
-    return 100.0 * len(covered) / len(pair.gold_jd_skills)
+    covered = gold_required & pair.gold_resume_skills
+    return 100.0 * len(covered) / len(gold_required)
 
 
 def evaluate_metrics() -> dict:
@@ -172,11 +193,12 @@ def evaluate_metrics() -> dict:
 
     for pair in DATASET:
         # --- skill extraction P/R/F1 (both resume and JD sides) ---
-        for text, gold in (
-            (pair.resume, pair.gold_resume_skills),
-            (pair.jd, pair.gold_jd_skills),
+        # The resume side uses the negation-aware extractor (what the matcher
+        # actually consumes); the JD side uses the raw extractor.
+        for predicted, gold in (
+            (extract_resume_skills(pair.resume), pair.gold_resume_skills),
+            (extract_skills(pair.jd), pair.gold_jd_skills),
         ):
-            predicted = extract_skills(text)
             tp += len(predicted & gold)
             fp += len(predicted - gold)
             fn += len(gold - predicted)
@@ -190,7 +212,11 @@ def evaluate_metrics() -> dict:
             abs_errors.append(case_err)
 
         # --- band classification accuracy ---
-        predicted_band = _band(result.fit_score)
+        predicted_band = (
+            "unscorable"
+            if result.status == "insufficient_signal"
+            else _band(result.fit_score)
+        )
         band_total += 1
         band_ok = predicted_band == pair.expect_band
         if band_ok:

@@ -16,7 +16,12 @@ def test_open_by_default():
 def test_api_key_enforced_when_configured(monkeypatch):
     monkeypatch.setenv("API_KEYS", "secret1, secret2")
 
-    assert client.post("/analyze", json=BODY).status_code == 401
+    denied = client.post("/analyze", json=BODY)
+    assert denied.status_code == 401
+    assert denied.json() == {
+        "error": "Missing or invalid API key.",
+        "code": "unauthorized",
+    }
     assert client.post("/analyze", json=BODY, headers={"X-API-Key": "nope"}).status_code == 401
     assert (
         client.post("/analyze", json=BODY, headers={"X-API-Key": "secret1"}).status_code
@@ -71,6 +76,7 @@ def test_rate_limit_returns_429_after_limit(monkeypatch):
         blocked = client.post("/analyze", json=BODY)
         assert blocked.status_code == 429
         assert "Retry-After" in blocked.headers
+        assert blocked.json()["code"] == "rate_limited"
     finally:
         security.reset_rate_limiter()
 

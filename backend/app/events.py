@@ -20,8 +20,36 @@ from typing import Optional
 from app.llm_client import analyze
 from app.store import make_store
 
-KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
 ANALYSIS_TOPIC = os.environ.get("ANALYSIS_TOPIC", "analysis-requests")
+
+
+def bootstrap_servers() -> str | None:
+    """Kafka bootstrap servers, or None when the async path is not configured.
+
+    Deliberately has NO localhost default: without explicit configuration the
+    async endpoints must fail fast (503) instead of exposing a broken path that
+    accepts jobs which nothing will ever process.
+    """
+    value = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
+    return value or None
+
+
+def enabled() -> bool:
+    """True when the event-driven async analysis path is configured."""
+    return bootstrap_servers() is not None
+
+
+class AsyncAnalysisDisabled(RuntimeError):
+    """Raised when the Kafka-backed path is used without configuration."""
+
+
+def _require_bootstrap() -> str:
+    servers = bootstrap_servers()
+    if servers is None:
+        raise AsyncAnalysisDisabled(
+            "Async analysis is not configured (set KAFKA_BOOTSTRAP_SERVERS)."
+        )
+    return servers
 
 # Shared job store (in-memory by default, Redis when JOB_STORE=redis). Both the
 # API and the consumer worker import this module, so when backed by Redis they
@@ -32,7 +60,7 @@ store = make_store()
 def _make_producer():
     from confluent_kafka import Producer
 
-    return Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
+    return Producer({"bootstrap.servers": _require_bootstrap()})
 
 
 def publish_job(resume: str, jd: str) -> str:
@@ -65,7 +93,7 @@ def consume_forever(stop_event: Optional[threading.Event] = None) -> None:
 
     consumer = Consumer(
         {
-            "bootstrap.servers": KAFKA_BOOTSTRAP,
+            "bootstrap.servers": _require_bootstrap(),
             "group.id": "analysis-workers",
             "auto.offset.reset": "earliest",
         }
