@@ -1,55 +1,78 @@
 import { test, expect } from "@playwright/test";
+import {
+  SYNTH_JD,
+  SYNTH_RESUME,
+  VIEWPORT_MATRIX,
+  runAnalysis,
+  runSampleAnalysis,
+} from "./helpers";
 
 /**
- * End-to-end coverage for the Resume ↔ JD Matcher.
+ * Smoke coverage for the browser-local keyword-coverage demo.
  *
- * Exercises the full client flow against the in-process /api/analyze route:
- * sample loading, analysis, score + matched/missing skills + suggestions, and
- * input validation. No API key required (deploy-safe).
+ * Deeper flow, accessibility, keyboard, upload and privacy coverage live in
+ * the dedicated specs (flows / accessibility / keyboard / files /
+ * storage-and-console).
  */
 
-test.describe("Resume ↔ JD Matcher", () => {
+test.describe("matcher smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
   });
 
-  test("renders the header and tech tags", async ({ page }) => {
-    await expect(
-      page.getByRole("heading", { name: "Resume ↔ JD Matcher" })
-    ).toBeVisible();
-    for (const tag of ["Next.js", "TypeScript", "FastAPI", "LLM", "Playwright"]) {
-      await expect(page.getByText(tag, { exact: true }).first()).toBeVisible();
+  test("renders the core controls", async ({ page }) => {
+    await expect(page.getByTestId("resume-input")).toBeVisible();
+    await expect(page.getByTestId("jd-input")).toBeVisible();
+    await expect(page.getByTestId("analyze-button")).toBeVisible();
+    await expect(page.getByTestId("sample-button")).toBeVisible();
+  });
+
+  test("manual analysis produces the coverage breakdown", async ({ page }) => {
+    await runAnalysis(page, SYNTH_RESUME, SYNTH_JD);
+    await expect(page.getByTestId("results-region")).toBeVisible();
+    await expect(page.getByTestId("score-value")).toBeVisible();
+    await expect(page.getByTestId("score-band")).toBeVisible();
+
+    // SYNTH_RESUME covers python/react; kubernetes is a required gap and
+    // terraform a nice-to-have gap (see helpers.ts).
+    await expect(page.getByTestId("required-matched-list")).toContainText("python");
+    await expect(page.getByTestId("required-matched-list")).toContainText("react");
+    await expect(page.getByTestId("required-missing-list")).toContainText("kubernetes");
+    await expect(page.getByTestId("nice-missing-list")).toContainText("terraform");
+
+    // Extra skills (docker in the resume, absent from the JD) are surfaced.
+    await expect(page.getByTestId("extra-skills-list")).toContainText("docker");
+
+    // Suggestions never encourage fabrication and never claim ATS behaviour.
+    const suggestions = await page
+      .getByTestId("suggestions-list")
+      .locator("li")
+      .allInnerTexts();
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const s of suggestions) {
+      expect(s.toLowerCase()).not.toContain("ats");
     }
   });
 
-  test("sample analysis renders score, skills and suggestions", async ({ page }) => {
-    await page.getByRole("button", { name: "Load a sample" }).click();
-    await page.getByRole("button", { name: "Analyze fit" }).click();
-
-    // Summary appears with a match band.
-    await expect(page.getByText(/match: the resume covers/i)).toBeVisible();
-
-    // Matched skills include react/typescript from the sample.
-    await expect(
-      page.getByRole("heading", { name: /Matched skills/i })
-    ).toBeVisible();
-    await expect(page.getByText("react", { exact: true }).first()).toBeVisible();
-
-    // Missing skills include kubernetes/terraform from the sample JD.
-    await expect(page.getByText("kubernetes", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("terraform", { exact: true }).first()).toBeVisible();
-
-    // At least one suggestion renders.
-    await expect(page.getByText(/Add concrete evidence of/i).first()).toBeVisible();
-
-    // Provider label is shown (mock in the deploy-safe default).
-    await expect(page.getByText(/Analysis provider:/i)).toBeVisible();
+  test("sample analysis works end to end", async ({ page }) => {
+    await runSampleAnalysis(page);
+    await expect(page.getByTestId("score-value")).toBeVisible();
+    await expect(page.getByTestId("suggestions-list")).toBeVisible();
   });
 
-  test("validates empty input", async ({ page }) => {
-    await page.getByRole("button", { name: "Analyze fit" }).click();
-    await expect(
-      page.getByText("Please provide both a resume and a job description.")
-    ).toBeVisible();
-  });
+  for (const viewport of VIEWPORT_MATRIX) {
+    test(`core controls visible without overflow at ${viewport.width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await expect(page.getByTestId("resume-input")).toBeVisible();
+      await expect(page.getByTestId("analyze-button")).toBeVisible();
+      const noOverflow = await page.evaluate(() => {
+        const el = document.scrollingElement ?? document.documentElement;
+        return el.scrollWidth <= el.clientWidth;
+      });
+      expect(noOverflow).toBe(true);
+    });
+  }
 });

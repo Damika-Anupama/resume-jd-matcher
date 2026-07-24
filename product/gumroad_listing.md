@@ -1,7 +1,15 @@
 # Gumroad Listing — resume-jd-matcher
 
-> **DRAFT — NOT PUBLISHED**
+> **INTERNAL DRAFT — NOT FOR PUBLICATION**
 > This is a working draft for review only. Nothing here is live on Gumroad or anywhere else. Prices, copy, and tiers are proposals pending Damika's sign-off.
+>
+> **Accuracy warning (post honesty-cutover):** the "Beat the ATS" framing and
+> ATS-rejection claims below are **not allowed** in published copy — the
+> product is a keyword-coverage check, not an ATS simulator. The quoted
+> metrics (test counts, precision/recall/F1) describe a **synthetic,
+> self-aligned dataset** measuring extraction agreement, not real-world
+> quality, and the test counts are stale. Re-verify every number against the
+> repo before any external use.
 
 ---
 

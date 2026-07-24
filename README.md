@@ -1,289 +1,164 @@
-# resume-jd-matcher
+# Resume ↔ JD Keyword Coverage
 
 [![CI](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml/badge.svg)](https://github.com/Damika-Anupama/resume-jd-matcher/actions/workflows/ci.yml)
 
-**Find out *why* a resume fails a job description — before an ATS silently rejects it.**
-
-`resume-jd-matcher` is a transparent, deterministic engine that scores how well a resume matches a job description, lists the skills you matched, the skills you're missing, and gives concrete suggestions to close the gap. It is **not** an AI black box — the core score is reproducible skill-overlap math you can read in 50 lines of Python. An optional LLM layer adds natural-language tailoring tips on top.
-
----
-
-## The problem
-
-Job seekers spray-and-pray: they fire the same resume at 80 postings and hear nothing back. On the other side, recruiters lean on ATS keyword-matching that silently rejects a candidate the moment a required skill string isn't found — no feedback, no reason, no second look.
-
-The result is a black hole. A qualified candidate gets auto-rejected and never learns that the JD wanted "Kubernetes" while their resume said "container orchestration." Nobody tells you **why** your resume failed a JD.
-
-`resume-jd-matcher` closes that loop. Paste a resume and a job description and get back, in milliseconds:
-
-- a **fit score** (0–100) you can actually explain,
-- the exact skills you **matched**,
-- the exact skills you're **missing**,
-- and **specific suggestions** for what to add or reword.
-
-Because the score is deterministic, the same inputs always produce the same output. You can audit it, reproduce it, and trust it.
-
----
-
-## How it works
-
-1. **Skill extraction.** Both the resume and the job description are scanned against a curated skill dictionary with aliases (e.g. `js` → `javascript`, `k8s` → `kubernetes`, `nextjs` → `next.js`). This catches the same skill written different ways.
-2. **Overlap matching.** The engine computes which JD-required skills appear in the resume (`matched_skills`), which don't (`missing_skills`), and which extra skills the resume has that the JD didn't ask for (`extra_skills`).
-3. **Deterministic scoring.** `fit_score = matched_required / total_required_in_JD`, scaled to 0–100. No randomness, no model weights — pure, reproducible arithmetic.
-4. **Suggestions layer.** A suggestions generator produces 3–5 actionable tips ("Add concrete evidence of kubernetes…"). With no API key configured this runs through a deterministic **mock** provider so the whole app works offline at zero cost. Set `OPENROUTER_API_KEY` to upgrade the suggestions to LLM-tailored prose (OpenRouter, `gpt-4o-mini`). The `provider` field in the response tells you which path produced the output (`mock` or `openrouter`).
-
-The transparency is the point: explainable, reproducible, offline-capable, and free by default. The LLM is an enhancement, never a dependency.
-
----
-
-## Demo
-
-Start the backend (see Install), then:
-
-```bash
-curl -s http://localhost:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "resume": "Built React and Next.js apps in TypeScript with FastAPI and Docker",
-    "job_description": "Need React, TypeScript, Kubernetes and Terraform"
-  }' | python -m json.tool
-```
-
-Response:
-
-```json
-{
-  "fit_score": 50,
-  "matched_skills": ["react", "typescript"],
-  "missing_skills": ["kubernetes", "terraform"],
-  "extra_skills": ["docker", "fastapi", "next.js"],
-  "summary": "Partial match: the resume covers 2 of 4 required skills (50%).",
-  "required_skills": ["kubernetes", "react", "terraform", "typescript"],
-  "nice_to_have_skills": [],
-  "evidence": {
-    "react": "Built React and Next.js apps in TypeScript with FastAPI and Docker",
-    "typescript": "Built React and Next.js apps in TypeScript with FastAPI and Docker"
-  },
-  "suggestions": [
-    "Add concrete evidence of kubernetes — a project, metric, or responsibility that demonstrates hands-on use.",
-    "Add concrete evidence of terraform — a project, metric, or responsibility that demonstrates hands-on use.",
-    "Lead with your strongest matched skills (react, typescript) near the top of the resume so they are seen first."
-  ],
-  "provider": "mock"
-}
-```
-
-> The JSON above is the **verbatim** response from the running service (mock
-> provider), not a paraphrase. Two matched, two missing, score 50 — and you
-> know exactly why.
-
----
-
-## Install
-
-### Backend (FastAPI)
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-The API is now live at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
-
-To enable LLM-tailored suggestions, set an OpenRouter key before launching:
-
-```bash
-export OPENROUTER_API_KEY=sk-or-...
-```
-
-Without it, the app runs fully offline using the deterministic `mock` provider.
-
-### Frontend (Next.js)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`, paste a resume and a JD (or **upload a PDF/DOCX/TXT**), and see the score, matched skills with the evidence behind each match, missing skills split into required-gaps vs nice-to-have, extra skills, and suggestions rendered in the UI.
-
-By default the frontend is fully self-contained: matching runs in an in-process
-TypeScript port of the engine (provider `mock`), so it deploys to Vercel with no
-backend. To get **real-LLM suggestions** and **PDF/DOCX upload**, point it at the
-Python backend by setting `BACKEND_URL` (see `frontend/.env.example`); the app
-proxies `/analyze` and `/extract` there and falls back to the local matcher if
-the backend is unreachable.
-
----
-
-## Usage
-
-**`POST /analyze`**
-
-Request body:
-
-```json
-{
-  "resume": "string — the candidate's resume text",
-  "job_description": "string — the target job description text"
-}
-```
-
-Response body:
-
-| Field | Type | Description |
-|---|---|---|
-| `fit_score` | `int` (0–100) | `matched_required / total_required_in_JD`, scaled |
-| `matched_skills` | `string[]` | Required skills found in the resume |
-| `missing_skills` | `string[]` | Required skills absent from the resume |
-| `extra_skills` | `string[]` | Resume skills the JD didn't ask for |
-| `summary` | `string` | One-line human summary of the match |
-| `required_skills` | `string[]` | JD skills classified as **required** (see tiering below) |
-| `nice_to_have_skills` | `string[]` | JD skills classified as **nice-to-have** ("preferred", "a plus", "bonus"…) |
-| `evidence` | `object` | For each matched skill, the resume line it was found on — so the score is explainable |
-| `suggestions` | `string[]` | 3–5 actionable tips to improve fit |
-| `provider` | `string` | `mock` (deterministic) or `openrouter` (LLM) |
-
-**Explainability (additive — never changes `fit_score`).** On top of the score,
-the engine classifies each JD skill as **required** or **nice-to-have** from cue
-words in the job description (a missing *required* skill is a real gap; a missing
-*nice-to-have* is just a bonus), and returns **evidence** — the resume line each
-matched skill was found on. `fit_score` remains pure JD-coverage arithmetic, so
-the golden-set numbers are unchanged and reproducible.
-
-**`POST /extract`** — multipart file upload (field `file`). Extracts plain text
-from a **PDF / DOCX / TXT** resume so you can analyse a real file instead of
-pasting. Returns `{filename, chars, text}`; size-guarded (5 MB) and capped to the
-same text limit as `/analyze`. Unsupported types → 415, corrupt files → 422.
-
-Other endpoints:
-
-- `GET /` — liveness probe (returns `{"status":"running", ...}`).
-- `POST /analyze/async` + `GET /analyze/status/{job_id}` — optional Kafka-backed async path.
-- `GET /metrics` — Prometheus metrics (request counts, latency, score distribution).
-
-Every analysis endpoint is also mounted under **`/v1`** (`POST /v1/analyze`,
-`POST /v1/extract`, …) so clients can pin a version; the unprefixed paths remain
-as back-compat aliases.
-
-### Hardening the public API (optional, env-gated)
-
-Off by default so the service stays deploy-safe with zero config (like the
-mock-LLM default). Enable for a public deployment:
-
-| Env var | Effect |
-|---|---|
-| `API_KEYS` | Comma-separated accepted keys. When set, `/analyze` and `/extract` require a matching key in `X-API-Key` (or `Authorization: Bearer <key>`). `/` and `/metrics` stay open. |
-| `RATE_LIMIT_PER_MINUTE` | Per-client rolling-60s request cap (`0`/unset = unlimited). Over-limit → `429` with `Retry-After`. Client = API key if present, else source IP. |
-
----
-
-## Architecture
-
-```
-                 ┌─────────────────────┐
-                 │   Next.js frontend   │
-                 │  (paste resume + JD) │
-                 └──────────┬──────────┘
-                            │ POST /analyze
-                            ▼
-        ┌───────────────────────────────────────┐
-        │            FastAPI backend             │
-        │                                        │
-        │  ┌──────────────────────────────────┐  │
-        │  │  Deterministic matching core     │  │
-        │  │  (app/matching.py)               │  │
-        │  │  skill dict + aliases → overlap  │  │
-        │  │  → fit_score, matched, missing   │  │
-        │  └──────────────────────────────────┘  │
-        │                  │                     │
-        │                  ▼                     │
-        │  ┌──────────────────────────────────┐  │
-        │  │  Suggestions layer (optional)    │  │
-        │  │  mock provider (offline) OR      │  │
-        │  │  OpenRouter gpt-4o-mini          │  │
-        │  └──────────────────────────────────┘  │
-        │                                        │
-        │  /metrics → Prometheus                 │
-        └───────────────────────────────────────┘
-                            │
-            optional async path (decoupled)
-                            ▼
-        ┌───────────────────────────────────────┐
-        │  Kafka events → worker → Redis store   │
-        └───────────────────────────────────────┘
-
-  Deploy: Docker images · k8s manifests · Terraform (deploy/)
-```
-
-- **Matching core** (`backend/app/matching.py`) — deterministic skill-overlap matcher. The single source of truth for the score.
-- **Suggestions layer** — pluggable provider; `mock` by default, `openrouter` when a key is present.
-- **Frontend** — Next.js single-page experience for paste-and-analyze.
-- **Observability** — Prometheus `/metrics` endpoint plus JSON request logs with request IDs, normalized paths, status codes, and latency; logs intentionally omit resume/JD bodies.
-- **Optional async path** — a Kafka event-driven analyze pipeline with a Redis shared store, for high-throughput / decoupled processing.
-- **Deploy** — Dockerfiles, Kubernetes manifests, and Terraform under `deploy/`.
-
----
-
-## Tech stack
-
-| Layer | Technology |
-|---|---|
-| API | FastAPI (Python 3.11) |
-| Matching | Pure-Python deterministic skill-overlap engine |
-| LLM (optional) | OpenRouter · `gpt-4o-mini` |
-| Frontend | Next.js / React / TypeScript |
-| Metrics | Prometheus |
-| Async (optional) | Kafka + Redis |
-| Packaging | Docker |
-| Orchestration | Kubernetes manifests |
-| Infra-as-code | Terraform |
-| Tests | pytest + custom eval harness |
-
----
-
-## Tested & evaluated
-
-This is not a weekend prototype with no safety net.
-
-- **Unit / integration tests:** `pytest` suite — **25 passed, 2 skipped** (the 2 skips require live Kafka/Redis, which are off in local/CI without Docker).
-
-  ```bash
-  cd backend && pytest
-  ```
-
-- **Evaluation harness:** a hand-labelled set of **20 realistic resume/JD pairs** (`app/eval_dataset.py`), each annotated with the gold skills a careful human reader would extract, plus an expected fit band. The harness measures the deterministic engine against those human labels and prints concrete numbers:
-
-  ```bash
-  cd backend && python -m app.evaluate        # human-readable report
-  cd backend && python -m app.evaluate --json  # machine-readable
-  ```
-
-  Latest measured results (deterministic, reproducible run-to-run):
-
-  | Metric | Value |
-  | --- | --- |
-  | Skill-extraction precision | **1.00** (196 TP, 0 FP) |
-  | Skill-extraction recall | **0.99** (2 FN) |
-  | Skill-extraction F1 | **0.995** |
-  | Fit-score mean absolute error | **0.99 pts** vs human reference (19 pairs) |
-  | Fit-band classification accuracy | **1.00** (20/20) |
-  | Behavioural golden set | **6/6** |
-
-  The 2 false-negatives are a deliberately-documented limitation (bare 2-letter `Go` is not extracted to avoid false-positives on the English verb; use `Golang`). Because the score is deterministic, these numbers are stable run-to-run — you measure the engine, not model variance. The quality bars are also pinned as pytest assertions (`tests/test_eval_metrics.py`) so a regression fails CI rather than passing silently.
-
----
-
-## License & honesty note
-
-`resume-jd-matcher` is a transparent skill-overlap matcher with an **optional** LLM suggestions layer. It does not pretend to be an AI oracle. The score is reproducible arithmetic you can read, audit, and trust — and it runs fully offline at zero API cost by default.
+**A transparent, browser-local keyword-coverage check between a resume and a job description.**
+
+Paste a resume and a job description; get back the share of the JD's **required
+keywords** that appear in the resume, the exact keywords matched and missing
+(required vs nice-to-have, listed separately), and honest suggestions for
+closing real gaps. Everything runs in your browser — the text never leaves the
+page.
+
+**Live demo:** _URL pending deployment verification_
 
 ## Screenshots
 
-| Input | Results |
+| Desktop | Mobile |
 |---|---|
-| ![Resume and JD input view](docs/ui-input.png) | ![Fit score, matched/missing skills and suggestions](docs/ui-results.png) |
+| ![Desktop view](docs/screenshots/desktop.png) | ![Mobile view](docs/screenshots/mobile.png) |
+
+*(Screenshots are captured at release; placeholders until then.)*
+
+## What it is — and what it is NOT
+
+**It is:**
+
+- a deterministic **keyword-coverage** check: which recognised skill keywords
+  from the JD's *required* list also appear in the resume,
+- fully **explainable** — every point of the score traces to a specific
+  keyword and the resume line it was found on,
+- **private by default** — analysis and file parsing run entirely in the
+  browser; no resume or JD byte is sent to any server, stored, or logged.
+
+**It is NOT:**
+
+- **an ATS simulator.** It does not reproduce how any applicant-tracking
+  system scores, parses or filters resumes — real ATS behaviour varies by
+  vendor and configuration, and recruiters dispute how much keyword
+  auto-rejection even happens.
+- **a hiring prediction.** A high score does not mean you will get an
+  interview; a low score does not mean you are unqualified.
+- a semantic or AI matcher. It matches a curated keyword dictionary with
+  aliases (`k8s` → `kubernetes`), nothing deeper. Treat the output as a
+  directional checklist, not a verdict.
+
+## How the score works
+
+1. Both texts are scanned against a curated skill dictionary with aliases, so
+   the same skill written different ways still counts.
+2. JD keywords are split into **required** and **nice-to-have** tiers from cue
+   phrases in the posting ("preferred", "a plus", "bonus"…).
+3. The score is **required-keyword coverage**:
+
+   ```
+   score = round(100 × |required keywords found in resume| / |required keywords in JD|)
+   ```
+
+   Nice-to-have coverage is reported separately and never affects the score.
+4. Resume statements that *negate* a skill ("no Kubernetes experience",
+   "eager to learn Terraform") do not count as evidence.
+5. If the JD contains no recognisable required keywords, the app reports
+   **insufficient signal** instead of inventing a number.
+
+Same inputs, same output, every time — the matcher is deterministic and open
+source, so you can audit exactly why each keyword was or wasn't counted.
+
+## Privacy model
+
+The public demo runs **local-only**:
+
+- matching, tiering and suggestion generation execute in the browser,
+- file-to-text extraction happens in the browser,
+- no analytics, cookies, or storage of resume/JD content — "Clear data" wipes
+  the ephemeral in-page state,
+- the e2e suite enforces this: dedicated tests assert that user text never
+  appears in network requests, console output, cookies, or any browser
+  storage surface.
+
+## Architecture
+
+**Public demo (this deployment):** a Next.js static frontend. The matching
+engine is a TypeScript port of the Python reference implementation, kept in
+lockstep by shared contract fixtures and a sync script (`scripts/sync-skills.mjs`).
+
+**Full product architecture (private, not part of the public demo):** the
+repository also contains the backend of a fuller product — a FastAPI service
+(same deterministic matcher, optional LLM suggestion layer), an optional
+Kafka + Redis async pipeline, Prometheus metrics, Docker images, Kubernetes
+manifests and Terraform. These are labelled honestly: they demonstrate the
+service architecture but have remaining gaps before production use (no DLQ or
+idempotency on the async path, no image release pipeline, no TLS/ingress
+hardening, Terraform not wired to a real cloud account). See
+[docs/backlog.md](docs/backlog.md) for the prioritized list.
+
+```
+Public demo:   browser ── local TypeScript matcher ── results (nothing leaves the page)
+
+Private full product (labelled, gaps listed in docs/backlog.md):
+  Next.js ── FastAPI (/v1/analyze, /v1/extract) ── deterministic matcher
+                   │                                   └─ optional LLM suggestions
+                   └─ optional Kafka → worker → Redis async path
+  Deploy: Docker · Kubernetes manifests · Terraform · Prometheus metrics
+```
+
+## Evaluation
+
+The Python engine is measured by an evaluation harness against a
+**synthetic, hand-labelled dataset of 20 resume/JD pairs**
+(`backend/app/eval_dataset.py`). Important caveats, stated up front:
+
+- the dataset is **synthetic and self-aligned** — the pairs were written with
+  the same skill taxonomy the engine uses, so the metrics measure
+  **extraction agreement with the taxonomy's own labels**, not real-world
+  matching quality;
+- results on real resumes and postings will be worse, particularly for skills
+  phrased outside the dictionary's aliases.
+
+Within those limits the harness is still useful: it is deterministic,
+reproducible run-to-run, and pinned as pytest assertions so a regression
+fails CI instead of passing silently. Methodology and current numbers:
+[docs/evaluation.md](docs/evaluation.md).
+
+## Testing
+
+- Python: pytest unit/integration suite plus the evaluation gate.
+- Frontend: ESLint, `tsc --noEmit`, production build.
+- E2E: Playwright on desktop and mobile Chromium — user flows, keyboard-only
+  operation, axe-core accessibility scans, file-upload edge cases, and
+  privacy checks (no network/storage/console leakage of user text).
+- CI: least-privilege GitHub Actions pinned to commit SHAs, dependency audits
+  (npm audit, pip-audit), CodeQL, Dependabot, and IaC validation
+  (terraform validate, kubeconform, Checkov).
+
+<!-- test-counts: updated at release -->
+
+## Development
+
+```bash
+# Frontend (public demo)
+cd frontend
+npm ci
+npm run dev          # http://localhost:3000
+npm run test:e2e     # Playwright suite
+
+# Backend (private full product)
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+uvicorn app.main:app --reload
+pytest
+```
+
+More: [frontend/README.md](frontend/README.md), [docs/case-study.md](docs/case-study.md),
+[docs/matching.md](docs/matching.md), [docs/adr/](docs/adr/).
+
+## License
+
+See [LICENSE](LICENSE).
+
+---
+
+**Need a tailored workflow like this for your business?** I build small,
+honest, well-tested tools end to end — get in touch via
+[github.com/Damika-Anupama](https://github.com/Damika-Anupama).

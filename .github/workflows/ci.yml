@@ -1,8 +1,14 @@
 name: CI
 
-# Lint, test, and run the evaluation harness on every push / PR.
-# All steps run with the deterministic mock path (no API key required), so CI is
-# fully reproducible and needs no secrets.
+# Lint, test, audit, and validate on every push / PR.
+#
+# Security posture:
+#   - least-privilege permissions (contents: read) at the workflow level
+#   - every third-party action pinned to a full commit SHA (tag in comment)
+#   - toolchain downloads pinned by version, with a checksum where feasible
+#
+# All test lanes run with deterministic, browser-local / mock paths — no
+# secrets or API keys are required, so CI is fully reproducible.
 
 on:
   push:
@@ -10,18 +16,27 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     name: Backend (ruff + pytest + eval harness)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
           cache: pip
@@ -40,17 +55,47 @@ jobs:
       - name: Evaluation harness (golden-set accuracy gate)
         run: python -m app.evaluate
 
+  backend-audit:
+    name: Backend dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      # REPORT-ONLY for now: pypdf 5.1.0, python-multipart 0.0.20 and
+      # starlette (via fastapi 0.128.8) have known advisories; failing this
+      # lane would block all CI until those pins are bumped. Flip
+      # continue-on-error to false once requirements.txt is updated
+      # (pypdf>=6.14.2, python-multipart>=0.0.31, fastapi bump for starlette).
+      - name: pip-audit (report-only until backend pins are bumped)
+        continue-on-error: true
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit==2.10.1
+          pip-audit -r requirements.txt
+
   frontend:
     name: Frontend (lint + typecheck + build)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
           cache: npm
@@ -71,17 +116,43 @@ jobs:
       - name: Build (next build)
         run: npm run build
 
-  e2e:
-    name: Frontend e2e (Playwright)
+  frontend-audit:
+    name: Frontend dependency audit (npm audit, prod deps)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Fails on high/critical advisories in production dependencies.
+      # Known state at time of writing: next 16.2.9 is flagged (fixed in
+      # 16.2.11) — this lane stays red until the Next.js pin is bumped.
+      - name: npm audit (production dependencies, high+)
+        run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    name: Frontend e2e (Playwright, chromium + mobile-chromium)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
           cache: npm
@@ -93,30 +164,42 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run e2e tests (builds standalone + serves via scripts/serve-e2e.mjs)
-        run: npm run test:e2e
+      - name: Run e2e tests (both projects; builds standalone + serves via scripts/serve-e2e.mjs)
+        run: npm run test:e2e -- --project=chromium --project=mobile-chromium
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
 
   deploy:
     name: IaC validation (terraform + kubeconform + checkov)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_wrapper: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
-      - name: Install checkov + kubeconform
+      - name: Install checkov (pinned) + kubeconform (pinned, checksum-verified)
         run: |
-          pipx install checkov
+          pipx install checkov==3.3.8
           curl -sSLo /tmp/kubeconform.tar.gz \
             https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          echo "95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73  /tmp/kubeconform.tar.gz" | sha256sum -c -
           sudo tar -C /usr/local/bin -xzf /tmp/kubeconform.tar.gz kubeconform
 
       - name: Validate IaC (terraform fmt/validate + kubeconform + checkov)
