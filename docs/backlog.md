@@ -52,3 +52,8 @@ priority within each section.
 13. **Shareable results** without violating the privacy model (e.g. encode
     results — never inputs — in a URL fragment).
 14. **i18n.** English-only cue words for required/nice-to-have tiering.
+15. **K8s env parity with the hardened backend.** The Kubernetes manifests do
+    not yet set `KAFKA_BOOTSTRAP_SERVERS` or `CORS_ALLOW_ORIGINS`; the backend
+    now fails safe without them (async endpoints return 503 `async_disabled`,
+    CORS falls back to a localhost dev allowlist), so a k8s deployment of the
+    private full product needs these set explicitly.
