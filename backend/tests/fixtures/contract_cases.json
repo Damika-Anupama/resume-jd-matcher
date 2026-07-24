@@ -458,6 +458,43 @@
     }
   },
   {
+    "name": "evidence_is_sentence_scoped",
+    "resume": "Built Python services at scale. Also maintains pipelines with Docker.",
+    "jd": "Python and Docker required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": ["docker", "python"],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "evidence_keys": ["docker", "python"],
+      "evidence": {
+        "python": "Built Python services at scale.",
+        "docker": "Also maintains pipelines with Docker."
+      }
+    }
+  },
+  {
+    "name": "insufficient_signal_still_reports_evidence_and_extras",
+    "resume": "Kubernetes and GraphQL engineer.",
+    "jd": "Nice to have: Kubernetes.",
+    "expect": {
+      "status": "insufficient_signal",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [],
+      "nice_to_have_matched": ["kubernetes"],
+      "nice_to_have_missing": [],
+      "suggestions": [],
+      "summary": "The job description lists only nice-to-have keywords, so a required-coverage score was not computed.",
+      "evidence_keys": ["kubernetes"],
+      "evidence": {
+        "kubernetes": "Kubernetes and GraphQL engineer."
+      }
+    }
+  },
+  {
     "name": "currently_learning_is_not_experience",
     "resume": "Currently learning Kafka in evening courses. Ships Python services in production.",
     "jd": "Kafka and Python required.",

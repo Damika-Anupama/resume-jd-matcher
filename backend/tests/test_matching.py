@@ -43,6 +43,8 @@ def test_no_recognised_jd_skills_is_insufficient_signal():
     assert result.missing_skills == []
     assert result.suggestions == []
     assert result.summary == SUMMARY_NO_JD_SKILLS
+    # Only suggestions are forced empty: resume-derived fields stay populated.
+    assert result.extra_skills == ["python"]
 
 
 def test_only_nice_to_have_jd_is_insufficient_but_reports_coverage():

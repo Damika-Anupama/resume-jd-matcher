@@ -63,6 +63,10 @@ def test_contract_case(case):
         assert result["summary"] == expect["summary"]
     if "evidence_keys" in expect:
         assert sorted(result["evidence"]) == expect["evidence_keys"]
+    if "evidence" in expect:
+        # Exact snippets: pins the segment-scoped (sentence-level, non-negated)
+        # evidence semantics shared with the TS port.
+        assert result["evidence"] == expect["evidence"]
 
     # Invariants that hold for every case regardless of exact expectations:
     assert len(result["suggestions"]) <= 5
