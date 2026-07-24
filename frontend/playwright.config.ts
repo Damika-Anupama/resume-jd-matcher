@@ -3,9 +3,16 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright E2E config for the Resume ↔ JD Matcher frontend.
  *
- * The app runs fully self-contained (matching runs in a Next.js route handler,
- * no external API key needed), so the suite passes locally and against the
- * Vercel preview. Set E2E_BASE_URL to target a deployed preview.
+ * The public demo is fully browser-local (analysis never leaves the page), so
+ * the suite needs no API keys or backend. Set E2E_BASE_URL to target a
+ * deployed preview instead of the local standalone build.
+ *
+ * Projects:
+ *   - chromium         desktop viewport (1280×720)
+ *   - mobile-chromium  Pixel 7 device descriptor (touch, mobile viewport)
+ *
+ * Individual specs additionally sweep a viewport matrix
+ * (320 / 375 / 390 / 768 / 1280) via page.setViewportSize.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -22,7 +29,19 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+    {
+      name: "mobile-chromium",
+      use: { ...devices["Pixel 7"] },
+    },
+  ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {

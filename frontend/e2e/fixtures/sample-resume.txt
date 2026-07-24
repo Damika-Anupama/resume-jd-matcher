@@ -1,0 +1,14 @@
+Alex Morgan
+Software Engineer (fictional persona — synthetic test fixture, no real PII)
+
+Summary
+Product-minded engineer with experience building web applications end to end.
+
+Experience
+Software Engineer, Example Labs (fictional) — 2022 to present
+- Built customer-facing web applications with Python and React.
+- Wrote TypeScript components and automated tests for critical flows.
+- Containerised services with Docker and shipped them through CI.
+
+Skills
+Python, React, TypeScript, Docker, Git
