@@ -1,0 +1,95 @@
+import { test, expect, type Page } from "@playwright/test";
+import { join } from "node:path";
+
+/**
+ * File-upload behaviour:
+ *  - a valid .txt resume is extracted into the resume input,
+ *  - oversized files are rejected with a 5 MB message,
+ *  - corrupt .pdf files fail with a clear error (when pdf is supported),
+ *  - unsupported extensions (.exe) fail with a clear error.
+ *
+ * PDF/DOCX support is probed from the file input's `accept` attribute so the
+ * suite tolerates those formats being dropped from the browser-local build.
+ */
+
+// Playwright transpiles specs to CJS, so __dirname is available here.
+const fixturesDir = join(__dirname, "fixtures");
+
+async function acceptedExtensions(page: Page): Promise<string[]> {
+  const accept = await page.getByTestId("file-input").getAttribute("accept");
+  return (accept ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+test.describe("file upload", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+  });
+
+  test("uploading a .txt resume fills the resume input", async ({ page }) => {
+    await page
+      .getByTestId("file-input")
+      .setInputFiles(join(fixturesDir, "sample-resume.txt"));
+    const resume = page.getByTestId("resume-input");
+    await expect(resume).toHaveValue(/Alex Morgan/);
+    await expect(resume).toHaveValue(/Python/);
+    await expect(page.getByTestId("upload-error")).toHaveCount(0);
+  });
+
+  test("oversized file (6 MB) is rejected with a 5 MB message", async ({ page }) => {
+    const sixMb = Buffer.alloc(6 * 1024 * 1024, 0x61); // 6 MB of "a"
+    await page.getByTestId("file-input").setInputFiles({
+      name: "huge-resume.txt",
+      mimeType: "text/plain",
+      buffer: sixMb,
+    });
+    const error = page.getByTestId("upload-error");
+    await expect(error).toBeVisible();
+    await expect(error).toContainText(/5\s?MB/i);
+  });
+
+  test("corrupt .pdf shows a clear error (when pdf is accepted)", async ({ page }) => {
+    const accepted = await acceptedExtensions(page);
+    test.skip(
+      !accepted.some((e) => e.includes("pdf")),
+      "pdf not supported in this build"
+    );
+    const garbage = Buffer.from(
+      "this is not a pdf at all — just plain garbage bytes" + "\u0000\u0001\u0002"
+    );
+    await page.getByTestId("file-input").setInputFiles({
+      name: "corrupt-resume.pdf",
+      mimeType: "application/pdf",
+      buffer: garbage,
+    });
+    const error = page.getByTestId("upload-error");
+    await expect(error).toBeVisible();
+    await expect(error).not.toHaveText("");
+    // The failed upload must not silently dump garbage into the resume field.
+    await expect(page.getByTestId("resume-input")).not.toHaveValue(/garbage bytes/);
+  });
+
+  test("unsupported .exe is rejected with a clear error", async ({ page }) => {
+    await page.getByTestId("file-input").setInputFiles({
+      name: "definitely-not-a-resume.exe",
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from("MZ fake executable bytes"),
+    });
+    const error = page.getByTestId("upload-error");
+    await expect(error).toBeVisible();
+    await expect(error).not.toHaveText("");
+    await expect(page.getByTestId("resume-input")).toHaveValue("");
+  });
+
+  test("accept attribute only advertises supported text formats", async ({ page }) => {
+    const accepted = await acceptedExtensions(page);
+    expect(accepted.length).toBeGreaterThan(0);
+    // .txt must always be supported; anything else must come from the known set.
+    expect(accepted.join(",")).toMatch(/txt|text\/plain/);
+    for (const ext of accepted) {
+      expect(ext).toMatch(/txt|md|pdf|docx|text\/plain|text\/markdown|application\//);
+    }
+  });
+});

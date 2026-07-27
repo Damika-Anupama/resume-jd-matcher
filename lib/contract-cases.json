@@ -1,0 +1,646 @@
+[
+  {
+    "name": "canonical_required_vs_nice",
+    "resume": "Python developer.",
+    "jd": "Required: Python. Nice to have: Kubernetes, Terraform.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [
+        "kubernetes",
+        "terraform"
+      ],
+      "suggestions": [
+        "Optional keywords not found: kubernetes, terraform. Only add one if you can support it truthfully.",
+        "All recognised required keywords are covered — emphasise depth and impact (metrics, scale, ownership) for your matched skills.",
+        "Lead with your strongest matched skills (python) near the top of the resume so they are seen first."
+      ],
+      "summary": "Strong coverage: the resume covers 1 of 1 required keywords (100%).",
+      "evidence_keys": [
+        "python"
+      ]
+    }
+  },
+  {
+    "name": "negation_no_python_experience",
+    "resume": "No Python experience.",
+    "jd": "Python required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "python"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "suggestions": [
+        "If you genuinely have python experience, add a concrete example — a project, metric, or responsibility that shows hands-on use."
+      ],
+      "summary": "Low coverage: the resume covers 0 of 1 required keywords (0%).",
+      "evidence_keys": []
+    }
+  },
+  {
+    "name": "negation_is_segment_scoped",
+    "resume": "5 years of Python. No Kubernetes experience.",
+    "jd": "Python and Kubernetes required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 50,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [
+        "kubernetes"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "suggestions": [
+        "If you genuinely have kubernetes experience, add a concrete example — a project, metric, or responsibility that shows hands-on use.",
+        "Lead with your strongest matched skills (python) near the top of the resume so they are seen first."
+      ],
+      "summary": "Partial coverage: the resume covers 1 of 2 required keywords (50%).",
+      "evidence_keys": [
+        "python"
+      ]
+    }
+  },
+  {
+    "name": "aspiration_is_not_experience",
+    "resume": "Software engineer eager to learn Rust.",
+    "jd": "Rust required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "rust"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "not_proficient_is_not_experience",
+    "resume": "Not proficient in Java.",
+    "jd": "Java required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "java"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "lacks_experience_segment_scoped",
+    "resume": "Lacks experience with Kafka. Strong Python skills.",
+    "jd": "Kafka and Python required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 50,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [
+        "kafka"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "evidence_keys": [
+        "python"
+      ]
+    }
+  },
+  {
+    "name": "skill_reasserted_elsewhere_still_counts",
+    "resume": "Built Terraform modules for cloud infrastructure.\nNot familiar with legacy Terraform 0.11 syntax.",
+    "jd": "Terraform required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "terraform"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "evidence_keys": [
+        "terraform"
+      ]
+    }
+  },
+  {
+    "name": "keyword_stuffing_counts_once",
+    "resume": "Python Python Python Python Python Python Python Python Python Python",
+    "jd": "Python and Docker required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 50,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [
+        "docker"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "out_of_dictionary_skills_ignored",
+    "resume": "Expert in COBOL and Fortran.",
+    "jd": "COBOL required. Python required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "python"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "unscorable_jd_no_skills",
+    "resume": "Python developer.",
+    "jd": "Join our friendly, collaborative team.",
+    "expect": {
+      "status": "insufficient_signal",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "suggestions": [],
+      "summary": "No recognised skill keywords were found in the job description, so a coverage score was not computed."
+    }
+  },
+  {
+    "name": "only_nice_to_have_jd",
+    "resume": "Kubernetes admin.",
+    "jd": "Nice to have: Kubernetes, Terraform.",
+    "expect": {
+      "status": "insufficient_signal",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [],
+      "nice_to_have_matched": [
+        "kubernetes"
+      ],
+      "nice_to_have_missing": [
+        "terraform"
+      ],
+      "suggestions": [],
+      "summary": "The job description lists only nice-to-have keywords, so a required-coverage score was not computed.",
+      "evidence_keys": [
+        "kubernetes"
+      ]
+    }
+  },
+  {
+    "name": "c_alone_is_out_of_dictionary",
+    "resume": "C developer.",
+    "jd": "C++ and C# required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "c#",
+        "c++"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "cpp_matches_cpp_only",
+    "resume": "C++ systems programmer.",
+    "jd": "C++ required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "c++"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "csharp_does_not_match_cpp",
+    "resume": "C# and .NET developer.",
+    "jd": "C++ required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "c++"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "javascript_does_not_match_java",
+    "resume": "JavaScript developer.",
+    "jd": "Java required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "java"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "java_with_nice_spring",
+    "resume": "Java and Spring Boot engineer.",
+    "jd": "Java required. Spring is a plus.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "java"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [
+        "spring"
+      ],
+      "nice_to_have_missing": [],
+      "suggestions": [
+        "All recognised required keywords are covered — emphasise depth and impact (metrics, scale, ownership) for your matched skills.",
+        "Lead with your strongest matched skills (java, spring) near the top of the resume so they are seen first."
+      ],
+      "summary": "Strong coverage: the resume covers 1 of 1 required keywords (100%)."
+    }
+  },
+  {
+    "name": "go_verb_does_not_match_golang",
+    "resume": "Led our go to market strategy.",
+    "jd": "Golang required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "go"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "golang_matches_go",
+    "resume": "Golang microservices developer.",
+    "jd": "Golang required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "go"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "k8s_abbreviation_matches_kubernetes",
+    "resume": "Deployed workloads to k8s clusters.",
+    "jd": "Kubernetes required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "kubernetes"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "ts_abbreviation_matches_typescript",
+    "resume": "Writes TS daily.",
+    "jd": "TypeScript required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "typescript"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "es6_matches_javascript",
+    "resume": "Modern ES6 codebase.",
+    "jd": "JavaScript required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "javascript"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "html_is_not_css",
+    "resume": "Hand-coded HTML email templates.",
+    "jd": "Required: HTML, CSS.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 50,
+      "required_matched": [
+        "html"
+      ],
+      "required_missing": [
+        "css"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "scss_matches_css_not_html",
+    "resume": "SCSS styling specialist.",
+    "jd": "CSS required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "css"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "numpy_is_not_pandas",
+    "resume": "Numerical computing with NumPy.",
+    "jd": "Required: pandas and NumPy.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 50,
+      "required_matched": [
+        "numpy"
+      ],
+      "required_missing": [
+        "pandas"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "pandas_is_not_numpy",
+    "resume": "Data analysis with pandas.",
+    "jd": "NumPy required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [
+        "numpy"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "required_section_reopens_after_nice",
+    "resume": "Python and Docker.",
+    "jd": "Nice to have:\n- Terraform\nRequirements:\n- Python\n- Docker",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "docker",
+        "python"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [
+        "terraform"
+      ]
+    }
+  },
+  {
+    "name": "inline_plus_clause_is_sentence_scoped",
+    "resume": "React and TypeScript developer.",
+    "jd": "Required: React, TypeScript and Docker. Experience with Kubernetes is a plus.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 67,
+      "required_matched": [
+        "react",
+        "typescript"
+      ],
+      "required_missing": [
+        "docker"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [
+        "kubernetes"
+      ],
+      "suggestions": [
+        "If you genuinely have docker experience, add a concrete example — a project, metric, or responsibility that shows hands-on use.",
+        "Optional keywords not found: kubernetes. Only add one if you can support it truthfully.",
+        "Lead with your strongest matched skills (react, typescript) near the top of the resume so they are seen first."
+      ],
+      "summary": "Partial coverage: the resume covers 2 of 3 required keywords (67%)."
+    }
+  },
+  {
+    "name": "rounding_half_to_even_down",
+    "resume": "Python developer.",
+    "jd": "Required: Python, Docker, Kubernetes, Terraform, AWS, GCP, Redis, Kafka.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 12,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [
+        "aws",
+        "docker",
+        "gcp",
+        "kafka",
+        "kubernetes",
+        "redis",
+        "terraform"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "rounding_half_to_even_up",
+    "resume": "Python, Docker and Redis.",
+    "jd": "Required: Python, Docker, Kubernetes, Terraform, AWS, GCP, Redis, Kafka.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 38,
+      "required_matched": [
+        "docker",
+        "python",
+        "redis"
+      ],
+      "required_missing": [
+        "aws",
+        "gcp",
+        "kafka",
+        "kubernetes",
+        "terraform"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "multiline_resume_full_coverage",
+    "resume": "Summary\nBuilt Python services.\nDocker for deployment.",
+    "jd": "Python and Docker required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "docker",
+        "python"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "suggestions": [
+        "All recognised required keywords are covered — emphasise depth and impact (metrics, scale, ownership) for your matched skills.",
+        "Lead with your strongest matched skills (docker, python) near the top of the resume so they are seen first."
+      ],
+      "summary": "Strong coverage: the resume covers 2 of 2 required keywords (100%).",
+      "evidence_keys": [
+        "docker",
+        "python"
+      ]
+    }
+  },
+  {
+    "name": "jd_side_negation_not_modelled",
+    "resume": "Python developer.",
+    "jd": "No Python required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "mixed_case_aliases_match",
+    "resume": "PYTHON and dOcKeR.",
+    "jd": "Python, Docker required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "docker",
+        "python"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": []
+    }
+  },
+  {
+    "name": "evidence_is_sentence_scoped",
+    "resume": "Built Python services at scale. Also maintains pipelines with Docker.",
+    "jd": "Python and Docker required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 100,
+      "required_matched": [
+        "docker",
+        "python"
+      ],
+      "required_missing": [],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "evidence_keys": [
+        "docker",
+        "python"
+      ],
+      "evidence": {
+        "python": "Built Python services at scale.",
+        "docker": "Also maintains pipelines with Docker."
+      }
+    }
+  },
+  {
+    "name": "insufficient_signal_still_reports_evidence_and_extras",
+    "resume": "Kubernetes and GraphQL engineer.",
+    "jd": "Nice to have: Kubernetes.",
+    "expect": {
+      "status": "insufficient_signal",
+      "fit_score": 0,
+      "required_matched": [],
+      "required_missing": [],
+      "nice_to_have_matched": [
+        "kubernetes"
+      ],
+      "nice_to_have_missing": [],
+      "suggestions": [],
+      "summary": "The job description lists only nice-to-have keywords, so a required-coverage score was not computed.",
+      "evidence_keys": [
+        "kubernetes"
+      ],
+      "evidence": {
+        "kubernetes": "Kubernetes and GraphQL engineer."
+      }
+    }
+  },
+  {
+    "name": "currently_learning_is_not_experience",
+    "resume": "Currently learning Kafka in evening courses. Ships Python services in production.",
+    "jd": "Kafka and Python required.",
+    "expect": {
+      "status": "ok",
+      "fit_score": 50,
+      "required_matched": [
+        "python"
+      ],
+      "required_missing": [
+        "kafka"
+      ],
+      "nice_to_have_matched": [],
+      "nice_to_have_missing": [],
+      "evidence_keys": [
+        "python"
+      ]
+    }
+  }
+]
