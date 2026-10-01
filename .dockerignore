@@ -1,0 +1,17 @@
+.git
+.github
+frontend
+node_modules
+.next
+**/node_modules
+**/.next
+**/test-results
+**/playwright-report
+**/tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
+deploy
+docs
+journals
+product

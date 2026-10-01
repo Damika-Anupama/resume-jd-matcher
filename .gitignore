@@ -16,6 +16,10 @@ dist/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+**/test-results/
+**/playwright-report/
+**/next-env.d.ts
+**/tsconfig.tsbuildinfo
 
 # Env / secrets
 .env

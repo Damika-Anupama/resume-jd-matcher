@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Sync the canonical matcher inputs to the frontend.
+// Sync the canonical matcher inputs to the root Next.js app.
 //
 // Two canonical files live in the backend and are mirrored (never hand-edited)
-// on the frontend, so the Python matcher and its TypeScript port can never
+// in the app, so the Python matcher and its TypeScript port can never
 // disagree on which skills exist or what the contract fixtures expect:
 //
-//   backend/app/skills.json                  -> frontend/lib/skills.json
-//   backend/tests/fixtures/contract_cases.json -> frontend/lib/contract-cases.json
+//   backend/app/skills.json                    -> lib/skills.json
+//   backend/tests/fixtures/contract_cases.json -> lib/contract-cases.json
 //
-//   node scripts/sync-skills.mjs          # regenerate the frontend copies
+//   node scripts/sync-skills.mjs          # regenerate the app copies
 //   node scripts/sync-skills.mjs --check  # verify sync (CI); exit 1 on drift
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -20,15 +20,15 @@ const SYNC_PAIRS = [
   {
     label: "skills",
     canonical: join(repoRoot, "backend", "app", "skills.json"),
-    generated: join(repoRoot, "frontend", "lib", "skills.json"),
-    generatedRel: "frontend/lib/skills.json",
+    generated: join(repoRoot, "lib", "skills.json"),
+    generatedRel: "lib/skills.json",
     canonicalRel: "backend/app/skills.json",
   },
   {
     label: "contract-cases",
     canonical: join(repoRoot, "backend", "tests", "fixtures", "contract_cases.json"),
-    generated: join(repoRoot, "frontend", "lib", "contract-cases.json"),
-    generatedRel: "frontend/lib/contract-cases.json",
+    generated: join(repoRoot, "lib", "contract-cases.json"),
+    generatedRel: "lib/contract-cases.json",
     canonicalRel: "backend/tests/fixtures/contract_cases.json",
   },
 ];

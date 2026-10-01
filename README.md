@@ -10,7 +10,7 @@ keywords** that appear in the resume, the exact keywords matched and missing
 closing real gaps. Everything runs in your browser — the text never leaves the
 page.
 
-**Live demo:** _URL pending deployment verification_
+**Live demo:** [resume-jd-fit-demo.vercel.app](https://resume-jd-fit-demo.vercel.app)
 
 ## Screenshots
 
@@ -28,8 +28,9 @@ page.
   from the JD's *required* list also appear in the resume,
 - fully **explainable** — every point of the score traces to a specific
   keyword and the resume line it was found on,
-- **private by default** — analysis and file parsing run entirely in the
-  browser; no resume or JD byte is sent to any server, stored, or logged.
+- **private by default in the demo flow** — analysis and file parsing run in
+  the browser; no resume or JD text is sent to a server, stored, or logged.
+  Optional API proxy routes are available only when `BACKEND_URL` is set.
 
 **It is NOT:**
 
@@ -78,24 +79,25 @@ The public demo runs **local-only**:
 
 ## Architecture
 
-**Public demo (this deployment):** a Next.js static frontend. The matching
-engine is a TypeScript port of the Python reference implementation, kept in
-lockstep by shared contract fixtures and a sync script (`scripts/sync-skills.mjs`).
+**Public demo (this deployment):** a Next.js app at the repository root. The
+matching engine is a TypeScript port of the Python reference implementation,
+kept in lockstep by shared contract fixtures and a sync script
+(`scripts/sync-skills.mjs`). Its browser-local flow does not call the optional
+server routes.
 
-**Full product architecture (private, not part of the public demo):** the
-repository also contains the backend of a fuller product — a FastAPI service
-(same deterministic matcher, optional LLM suggestion layer), an optional
-Kafka + Redis async pipeline, Prometheus metrics, Docker images, Kubernetes
-manifests and Terraform. These are labelled honestly: they demonstrate the
-service architecture but have remaining gaps before production use (no DLQ or
-idempotency on the async path, no image release pipeline, no TLS/ingress
-hardening, Terraform not wired to a real cloud account). See
+**Full product architecture (also included here):** the repository contains a
+FastAPI service (same deterministic matcher, optional LLM suggestion layer),
+an optional Kafka + Redis async pipeline, Prometheus metrics, Docker images,
+Kubernetes manifests and Terraform. These are reference components with gaps
+before production use (no DLQ or idempotency on the async path, no image
+release pipeline, no TLS/ingress hardening, Terraform not wired to a real
+cloud account). See
 [docs/backlog.md](docs/backlog.md) for the prioritized list.
 
 ```
-Public demo:   browser ── local TypeScript matcher ── results (nothing leaves the page)
+Public demo:   browser ── local TypeScript matcher ── results (demo flow stays in the browser)
 
-Private full product (labelled, gaps listed in docs/backlog.md):
+Full product services (optional, gaps listed in docs/backlog.md):
   Next.js ── FastAPI (/v1/analyze, /v1/extract) ── deterministic matcher
                    │                                   └─ optional LLM suggestions
                    └─ optional Kafka → worker → Redis async path
@@ -140,13 +142,12 @@ zero known vulnerabilities.
 ## Development
 
 ```bash
-# Frontend (public demo)
-cd frontend
+# Frontend (public demo, from the repository root)
 npm ci
 npm run dev          # http://localhost:3000
 npm run test:e2e     # Playwright suite
 
-# Backend (private full product)
+# Backend services
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
@@ -154,7 +155,7 @@ uvicorn app.main:app --reload
 pytest
 ```
 
-More: [frontend/README.md](frontend/README.md), [docs/case-study.md](docs/case-study.md),
+More: [docs/public-demo-README.md](docs/public-demo-README.md), [docs/case-study.md](docs/case-study.md),
 [docs/matching.md](docs/matching.md), [docs/adr/](docs/adr/).
 
 ## License
